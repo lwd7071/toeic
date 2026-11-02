@@ -1,0 +1,32 @@
+{
+  "name": "miu-toeic",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "emulators": "firebase emulators:start --only auth,firestore --project demo-miu-toeic"
+  },
+  "dependencies": {
+    "csv-parse": "^6.1.0",
+    "firebase": "^12.5.0",
+    "firebase-admin": "^13.6.0",
+    "lucide-react": "^0.468.0",
+    "next": "^15.5.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-markdown": "^10.1.0"
+  },
+  "devDependencies": {
+    "@playwright/cli": "^0.1.23",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "firebase-tools": "^14.27.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}

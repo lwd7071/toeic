@@ -1,0 +1,14 @@
+.env.local
+node_modules/
+.next/
+coverage/
+.vercel/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+service-account*.json
+.playwright-cli/
+*-desktop.png
+*-mobile*.png
+tsconfig.tsbuildinfo
+*-debug.log
