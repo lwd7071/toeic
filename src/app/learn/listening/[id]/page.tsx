@@ -15,7 +15,7 @@ type Result = { id: string; correct: number; total: number; answers: { id: strin
 function Media({ item }: { item: Item }) {
   return <div className="listening-media">
     {item.imageUrl && <><iframe className="drive-image" src={item.imageUrl} title="Tranh cần nghe mô tả" loading="lazy"/>{item.imageViewUrl && <a href={item.imageViewUrl} target="_blank" rel="noopener noreferrer">Mở ảnh trên Drive nếu khung không hiển thị</a>}</>}
-    <iframe className="drive-audio" src={item.audioUrl} title="Nghe audio câu hỏi" loading="lazy" allow="autoplay"/>
+    <div className="drive-audio-frame"><iframe className="drive-audio" src={item.audioUrl} title="Nghe audio câu hỏi" loading="lazy" allow="autoplay"/></div>
     <a href={item.audioViewUrl} target="_blank" rel="noopener noreferrer">Mở MP3 trên Drive</a>
   </div>;
 }

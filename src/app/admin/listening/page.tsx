@@ -16,7 +16,7 @@ type Preview = { hash: string; count: number; rows: Record<string, string>[]; er
 function MediaCheck({ image, audio }: { image?: string; audio: string }) {
   return <div className="media-check">
     {image && <iframe className="drive-image" src={image.replace(/\/view(?=\?|$)/, "/preview")} title="Ảnh xem trước cho câu mô tả tranh" loading="lazy"/>}
-    <iframe className="drive-audio" src={audio.replace(/\/view(?=\?|$)/, "/preview")} title="Nghe MP3 xem trước" loading="lazy" allow="autoplay"/>
+    <div className="drive-audio-frame"><iframe className="drive-audio" src={audio.replace(/\/view(?=\?|$)/, "/preview")} title="Nghe MP3 xem trước" loading="lazy" allow="autoplay"/></div>
     <p>Không thấy ảnh hoặc không nghe được? Mở file trên Drive để kiểm tra quyền chia sẻ.</p>
     <div className="inline-actions">{image && <a href={image} target="_blank" rel="noopener noreferrer">Mở ảnh trên Drive</a>}<a href={audio} target="_blank" rel="noopener noreferrer">Mở MP3 trên Drive</a></div>
   </div>;
