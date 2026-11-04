@@ -41,7 +41,7 @@ npm test
 
 File UTF-8 (có BOM cũng được), tối đa 1 MB và 200 dòng. Câu ngữ pháp cần đúng một dấu `____`. Xem trước và sửa toàn bộ lỗi trước khi xác nhận nhập. Mỗi lần nhập được ghi toàn bộ hoặc không ghi gì.
 
-Listening: admin tải ảnh và MP3 lên Google Drive, bật quyền **Bất kỳ ai có đường liên kết – Người xem** cho từng file, rồi dán link file vào CSV. Tạo bài ở `/admin/listening`, chọn dạng bài trước khi nhập CSV. Trang xem trước cho thử ảnh và MP3; nếu media không phát trong trình duyệt thì không nên nhập bài đó. Nên dùng ảnh tối đa 5 MiB và MP3 tối đa 25 MiB. Vì app chỉ nhận link, app không kiểm tra được dung lượng hoặc bảo đảm Drive sẽ luôn phát trực tiếp. Chỉ kết quả bài đã nộp mới được lưu vào Tiến độ.
+Listening: admin tải ảnh và MP3 lên Google Drive, bật quyền **Bất kỳ ai có đường liên kết – Người xem** cho từng file, rồi dán link **từng file** dạng `https://drive.google.com/file/d/FILE_ID/view` vào CSV (không dùng link thư mục). Tạo bài ở `/admin/listening`, chọn dạng bài trước khi nhập CSV. App dùng trình xem nhúng của Drive để hiển thị ảnh và phát MP3; hãy thử từng câu trong trang xem trước trước khi nhập. Nên dùng ảnh tối đa 5 MiB và MP3 tối đa 25 MiB. Vì app chỉ nhận link, app không kiểm tra được dung lượng hoặc bảo đảm Drive sẽ luôn phát trực tiếp. Chỉ kết quả bài đã nộp mới được lưu vào Tiến độ.
 
 ## Triển khai Vercel
 

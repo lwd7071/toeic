@@ -7,16 +7,15 @@ export type ListeningSet = { title: string; kind: ListeningKind; archivedAt: str
 export type ListeningItem = { setId: string; audioUrl: string; imageUrl?: string; transcript?: string; A?: string; B?: string; C?: string; D?: string; correctAnswer?: "A" | "B" | "C" | "D"; key: string; archivedAt: string | null; createdAt: string };
 export type ListeningAttempt = { uid: string; setId: string; title: string; kind: ListeningKind; correct: number; total: number; completedAt: string };
 
-export function driveLink(value: string): { viewUrl: string; mediaUrl: string } {
+export function driveLink(value: string): { viewUrl: string; previewUrl: string } {
   let url: URL;
   try { url = new URL(value); } catch { throw new ApiError(400, "Link Google Drive không hợp lệ."); }
   if (url.protocol !== "https:" || url.hostname !== "drive.google.com") throw new ApiError(400, "Chỉ chấp nhận link file Google Drive HTTPS.");
   const id = url.pathname.match(/^\/file\/d\/([a-zA-Z0-9_-]+)(?:\/|$)/)?.[1] ?? (url.pathname === "/open" || url.pathname === "/uc" ? url.searchParams.get("id") : null);
   if (!id || !/^[a-zA-Z0-9_-]{10,}$/.test(id)) throw new ApiError(400, "Link cần trỏ đến một file Google Drive.");
   const resourceKey = url.searchParams.get("resourcekey");
-  const query = new URLSearchParams({ export: "download", id });
-  if (resourceKey) query.set("resourcekey", resourceKey);
-  return { viewUrl: `https://drive.google.com/file/d/${id}/view${resourceKey ? `?resourcekey=${encodeURIComponent(resourceKey)}` : ""}`, mediaUrl: `https://drive.google.com/uc?${query}` };
+  const suffix = resourceKey ? `?resourcekey=${encodeURIComponent(resourceKey)}` : "";
+  return { viewUrl: `https://drive.google.com/file/d/${id}/view${suffix}`, previewUrl: `https://drive.google.com/file/d/${id}/preview${suffix}` };
 }
 
 export function normalizedTranscript(value: string): string {

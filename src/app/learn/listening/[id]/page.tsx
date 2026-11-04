@@ -13,11 +13,9 @@ type Data = { set: { id: string; title: string; kind: "dictation" | "picture" };
 type Result = { id: string; correct: number; total: number; answers: { id: string; selected: string; correct: boolean; expected: string; A?: string; B?: string; C?: string; D?: string }[] };
 
 function Media({ item }: { item: Item }) {
-  const [audioError, setAudioError] = useState(false), [imageError, setImageError] = useState(false);
   return <div className="listening-media">
-    {item.imageUrl && <><img src={item.imageUrl} alt="Tranh cần nghe mô tả" onError={() => setImageError(true)}/>{imageError && <p className="form-error" role="alert">Ảnh không tải được. Hãy kiểm tra quyền chia sẻ trên Drive.</p>}{item.imageViewUrl && <a href={item.imageViewUrl} target="_blank" rel="noopener noreferrer">Mở ảnh trên Drive</a>}</>}
-    <audio controls preload="metadata" src={item.audioUrl} onError={() => setAudioError(true)}>Trình duyệt không hỗ trợ phát audio.</audio>
-    {audioError && <p className="form-error" role="alert">MP3 không phát được. Hãy kiểm tra quyền chia sẻ trên Drive.</p>}
+    {item.imageUrl && <><iframe className="drive-image" src={item.imageUrl} title="Tranh cần nghe mô tả" loading="lazy"/>{item.imageViewUrl && <a href={item.imageViewUrl} target="_blank" rel="noopener noreferrer">Mở ảnh trên Drive nếu khung không hiển thị</a>}</>}
+    <iframe className="drive-audio" src={item.audioUrl} title="Nghe audio câu hỏi" loading="lazy" allow="autoplay"/>
     <a href={item.audioViewUrl} target="_blank" rel="noopener noreferrer">Mở MP3 trên Drive</a>
   </div>;
 }

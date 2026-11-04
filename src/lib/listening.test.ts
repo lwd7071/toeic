@@ -3,7 +3,7 @@ import { driveLink, normalizedTranscript, parseListeningCsv } from "./listening"
 
 describe("listening", () => {
   it("checks Drive file links without accepting another host", () => {
-    expect(driveLink("https://drive.google.com/file/d/abcDEF12345/view").mediaUrl).toContain("id=abcDEF12345");
+    expect(driveLink("https://drive.google.com/file/d/abcDEF12345/view").previewUrl).toBe("https://drive.google.com/file/d/abcDEF12345/preview");
     expect(() => driveLink("https://example.com/file/d/abcDEF12345/view")).toThrow();
   });
   it("ignores punctuation, case and extra spaces in dictation", () => {

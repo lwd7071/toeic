@@ -13,19 +13,11 @@ type Item = { id: string; setId: string; audioUrl: string; imageUrl?: string; tr
 type Data = { sets: Set[]; items: Item[] };
 type Preview = { hash: string; count: number; rows: Record<string, string>[]; errors: string[] };
 
-function mediaUrl(link: string) {
-  const url = new URL(link), id = url.pathname.split("/")[3];
-  const query = new URLSearchParams({ export: "download", id });
-  if (url.searchParams.has("resourcekey")) query.set("resourcekey", url.searchParams.get("resourcekey")!);
-  return `https://drive.google.com/uc?${query}`;
-}
-
 function MediaCheck({ image, audio }: { image?: string; audio: string }) {
-  const [failed, setFailed] = useState(false);
   return <div className="media-check">
-    {image && <img src={mediaUrl(image)} alt="Ảnh xem trước cho câu mô tả tranh" onError={() => setFailed(true)}/>}
-    <audio controls preload="metadata" src={mediaUrl(audio)} onError={() => setFailed(true)}>Trình duyệt không hỗ trợ phát audio.</audio>
-    {failed && <p className="form-error" role="alert">Media không mở được trong trang. Kiểm tra quyền chia sẻ hoặc thử lưu file ở nơi khác.</p>}
+    {image && <iframe className="drive-image" src={image.replace(/\/view(?=\?|$)/, "/preview")} title="Ảnh xem trước cho câu mô tả tranh" loading="lazy"/>}
+    <iframe className="drive-audio" src={audio.replace(/\/view(?=\?|$)/, "/preview")} title="Nghe MP3 xem trước" loading="lazy" allow="autoplay"/>
+    <p>Không thấy ảnh hoặc không nghe được? Mở file trên Drive để kiểm tra quyền chia sẻ.</p>
     <div className="inline-actions">{image && <a href={image} target="_blank" rel="noopener noreferrer">Mở ảnh trên Drive</a>}<a href={audio} target="_blank" rel="noopener noreferrer">Mở MP3 trên Drive</a></div>
   </div>;
 }
