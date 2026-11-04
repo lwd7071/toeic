@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpenText, ChartNoAxesColumn, House, Layers3, LogOut, Settings2 } from "lucide-react";
+import { BookOpenText, ChartNoAxesColumn, Headphones, House, Layers3, LogOut, Settings2 } from "lucide-react";
 import { api } from "@/lib/api-client";
 
 const links = [
   { href: "/learn", label: "Trang đầu", icon: House },
   { href: "/learn/vocabulary", label: "Từ vựng", icon: Layers3 },
   { href: "/learn/grammar", label: "Ngữ pháp", icon: BookOpenText },
+  { href: "/learn/listening", label: "Listening", icon: Headphones },
   { href: "/learn/progress", label: "Tiến độ", icon: ChartNoAxesColumn },
 ];
 

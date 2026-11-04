@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { ArchiveRestore, FileUp, Plus, Save, Settings2 } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { useLoad } from "@/lib/use-load";
@@ -67,7 +68,7 @@ export default function Admin() {
   }
   if(loading)return <Loading/>;
   if(error||!data)return <ErrorState message={error} retry={reload}/>;
-  return <><PageTitle title="Góc quản trị" description="Chuẩn bị bài học cho mọi người cùng Miu."/><div className="admin-layout"><aside className="admin-menu"><button className={tab==="cards"?"active":""} onClick={()=>{setTab("cards");setSelected("");setCreating(false)}}>Bộ từ vựng</button><button className={tab==="questions"?"active":""} onClick={()=>{setTab("questions");setSelected("");setCreating(false)}}>Bài ngữ pháp</button></aside><div className="admin-main">
+  return <><PageTitle title="Góc quản trị" description="Chuẩn bị bài học cho mọi người cùng Miu."/><div className="admin-layout"><aside className="admin-menu"><button className={tab==="cards"?"active":""} onClick={()=>{setTab("cards");setSelected("");setCreating(false)}}>Bộ từ vựng</button><button className={tab==="questions"?"active":""} onClick={()=>{setTab("questions");setSelected("");setCreating(false)}}>Bài ngữ pháp</button><Link className="admin-menu-link" href="/admin/listening">Bài listening</Link></aside><div className="admin-main">
     <div className="admin-toolbar"><h2>{tab==="cards"?"Chủ đề từ vựng":"Bài ngữ pháp"}</h2><button className="button button-primary button-small" onClick={()=>{setCreating(true);setTitle("");setTheory("");setSelected("");setPreview(null)}}><Plus size={17}/> Tạo {tab==="cards"?"chủ đề":"bài học"}</button></div>
     {creating&&<div className="paper-panel form-stack" style={{marginBottom:22}}><h3>{tab==="cards"?"Chủ đề mới":"Bài ngữ pháp mới"}</h3><label>Tên<input className="field" value={title} onChange={e=>setTitle(e.target.value)} placeholder={tab==="cards"?"Ví dụ: Công sở":"Ví dụ: Bài danh từ"}/></label>{tab==="questions"&&<TheoryEditor value={theory} onChange={setTheory}/>}<div className="form-actions"><button className="button button-primary" disabled={busy||!title.trim()} onClick={create}>Tạo mới</button><button className="button button-ghost" onClick={()=>{setCreating(false);setSelected(parents[0]?.id??"")}}>Hủy</button></div></div>}
     <div className="admin-list">{parents.map(parent=><div className={`admin-item ${parent.archivedAt?"archived":""}`} key={parent.id}><div><h3>{parent.title}</h3><p>{parent.archivedAt?"Đã ẩn":"Đang mở"} · {tab==="cards"?data.cards.filter(c=>c.topicId===parent.id).length:data.questions.filter(q=>q.lessonId===parent.id).length} mục</p></div><div className="admin-actions"><button onClick={()=>{setSelected(parent.id);setCreating(false)}}>Quản lý</button><button className={parent.archivedAt?"":"danger"} disabled={busy} onClick={()=>archive(tab==="cards"?"topic":"lesson",parent.id,Boolean(parent.archivedAt))}>{parent.archivedAt?"Khôi phục":"Ẩn"}</button></div></div>)}</div>

@@ -1,6 +1,6 @@
 # Miu TOEIC
 
-Web học từ vựng và ngữ pháp TOEIC với Next.js, Firebase và Vercel.
+Web học từ vựng, ngữ pháp và listening TOEIC với Next.js, Firebase và Vercel.
 
 ## Chạy tại máy
 
@@ -36,8 +36,12 @@ npm test
 
 - Flashcard: `english,vietnamese`
 - Ngữ pháp: `question,A,B,C,D,correct_answer,explanation`
+- Nghe chép: `audio_url,transcript`
+- Mô tả tranh: `image_url,audio_url,A,B,C,D,correct_answer`
 
 File UTF-8 (có BOM cũng được), tối đa 1 MB và 200 dòng. Câu ngữ pháp cần đúng một dấu `____`. Xem trước và sửa toàn bộ lỗi trước khi xác nhận nhập. Mỗi lần nhập được ghi toàn bộ hoặc không ghi gì.
+
+Listening: admin tải ảnh và MP3 lên Google Drive, bật quyền **Bất kỳ ai có đường liên kết – Người xem** cho từng file, rồi dán link file vào CSV. Tạo bài ở `/admin/listening`, chọn dạng bài trước khi nhập CSV. Trang xem trước cho thử ảnh và MP3; nếu media không phát trong trình duyệt thì không nên nhập bài đó. Nên dùng ảnh tối đa 5 MiB và MP3 tối đa 25 MiB. Vì app chỉ nhận link, app không kiểm tra được dung lượng hoặc bảo đảm Drive sẽ luôn phát trực tiếp. Chỉ kết quả bài đã nộp mới được lưu vào Tiến độ.
 
 ## Triển khai Vercel
 
