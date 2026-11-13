@@ -32,6 +32,15 @@ npm test
 .\node_modules\.bin\playwright-cli.cmd run-code --filename scripts\smoke-emulator.js
 ```
 
+## Tài khoản Bot quản lý bài học
+
+1. Trong Firebase Console > Authentication, bật phương thức **Email/Password** và tạo một tài khoản chỉ dành cho Bot. Tên đăng nhập là email của tài khoản này; không dùng Gmail cá nhân hay tài khoản Google của admin.
+2. Sao chép **UID** của tài khoản vừa tạo vào `BOT_FIREBASE_UID` trong `.env.local` và cấu hình cùng biến này trên Vercel. Chỉ UID đó với phương thức đăng nhập bằng mật khẩu mới có role Bot.
+3. Mở `/bot/login` để đăng nhập. Bot được tạo, sửa và nhập nội dung tại `/admin`, `/admin/listening`; Bot không được xem lịch học viên, dùng API học viên, hoặc ẩn/khôi phục nội dung. Trang đăng nhập này không có liên kết từ trang công khai; quyền vẫn được kiểm tra trên máy chủ.
+4. Khi cần ngắt quyền, xóa `BOT_FIREBASE_UID` khỏi cấu hình triển khai và thu hồi phiên của UID đó trong Firebase Authentication. Đổi mật khẩu đơn lẻ không thay thế việc thu hồi phiên.
+
+Chỉ nhập mật khẩu vào trang đăng nhập hoặc hộp thông tin bảo mật chính thức của Muse; không gửi trong chat. Role Bot dùng giao diện quản trị hiện có, chưa thiết lập lịch chạy hằng ngày trong Muse.
+
 ## File CSV
 
 - Flashcard: `english,vietnamese`
@@ -44,5 +53,7 @@ File UTF-8 (có BOM cũng được), tối đa 1 MB và 200 dòng. Câu ngữ ph
 Listening: admin tải ảnh và MP3 lên Google Drive, bật quyền **Bất kỳ ai có đường liên kết – Người xem** cho từng file, rồi dán link **từng file** dạng `https://drive.google.com/file/d/FILE_ID/view` vào CSV (không dùng link thư mục). Tạo bài ở `/admin/listening`, chọn dạng bài trước khi nhập CSV. App dùng trình xem nhúng của Drive để hiển thị ảnh và phát MP3; hãy thử từng câu trong trang xem trước trước khi nhập. Nên dùng ảnh tối đa 5 MiB và MP3 tối đa 25 MiB. Vì app chỉ nhận link, app không kiểm tra được dung lượng hoặc bảo đảm Drive sẽ luôn phát trực tiếp. Chỉ kết quả bài đã nộp mới được lưu vào Tiến độ.
 
 ## Triển khai Vercel
+
+Trước khi triển khai phiên bản có nhiều bài tập ngữ pháp trên dữ liệu cũ, chạy một lần `node scripts/migrate-grammar-exercises.mjs` với `NEXT_PUBLIC_FIREBASE_PROJECT_ID` và `FIREBASE_SERVICE_ACCOUNT_JSON` của dự án. Script tạo “Bài tập 1” cho mỗi bài ngữ pháp cũ và gắn các câu hỏi cũ vào đó; chạy lại không tạo trùng. Lượt làm bài và câu trả lời cũ được giữ nguyên.
 
 Đưa các biến trong `.env.local` vào Vercel Project Settings, cộng thêm `FIREBASE_SERVICE_ACCOUNT_JSON` là bí mật máy chủ. Đặt `STUDY_TRACKING_START_DATE` thành ngày tính năng lịch học bắt đầu hoạt động theo giờ Việt Nam (`YYYY-MM-DD`); các ngày trước đó hiển thị là chưa theo dõi. Triển khai Firestore Rules từ `firestore.rules` bằng `firebase deploy --only firestore:rules --project <firebase-project-id>` để khóa truy cập trực tiếp từ client. Sau khi có domain Vercel, thêm domain đó vào Firebase Auth Authorized domains. Không triển khai bản thật trước khi đã bật Google Sign-In, tạo Firestore và cấu hình service account.

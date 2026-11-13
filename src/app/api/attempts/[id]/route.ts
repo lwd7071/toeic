@@ -20,6 +20,8 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       if (!question) throw new ApiError(409, "Câu hỏi của lượt này không còn tồn tại.");
       current = { id: questionId, question: question.question, A: question.A, B: question.B, C: question.C, D: question.D };
     }
-    return Response.json({ attempt: { id, lessonId: attempt.lessonId, status: attempt.status, answeredCount: attempt.answeredCount, correctCount: attempt.correctCount, total: attempt.questionIds.length }, current, answers });
+    const exerciseId = attempt.exerciseId ?? `default_${attempt.lessonId}`;
+    const exercise = await store.collection("grammarExercises").doc(exerciseId).get();
+    return Response.json({ attempt: { id, lessonId: attempt.lessonId, exerciseId, exerciseTitle: exercise.data()?.title ?? "Bài tập 1", status: attempt.status, answeredCount: attempt.answeredCount, correctCount: attempt.correctCount, total: attempt.questionIds.length }, current, answers });
   } catch (error) { return jsonError(error); }
 }

@@ -1,16 +1,16 @@
-import { ApiError, requireAdmin } from "@/lib/auth";
+import { ApiError, requireContentEditor } from "@/lib/auth";
 import { jsonError, nullableArchive, requireCsrf, textField } from "@/lib/api";
 import { db } from "@/lib/firebase-admin";
 import { normalizedKey, uniqueId } from "@/lib/csv-import";
 import { Card, Question } from "@/lib/models";
 
 export const runtime = "nodejs";
-const collections: Record<string, string> = { topic: "vocabTopics", card: "vocabCards", lesson: "grammarLessons", question: "grammarQuestions" };
+const collections: Record<string, string> = { topic: "vocabTopics", card: "vocabCards", lesson: "grammarLessons", exercise: "grammarExercises", question: "grammarQuestions" };
 
 export async function PATCH(request: Request, context: { params: Promise<{ kind: string; id: string }> }) {
   try {
     await requireCsrf();
-    await requireAdmin();
+    const user = await requireContentEditor();
     const { kind, id } = await context.params;
     const collection = collections[kind];
     if (!collection) throw new ApiError(400, "Loại nội dung không hợp lệ.");
@@ -20,6 +20,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ kind:
     const doc = await ref.get();
     if (!doc.exists) throw new ApiError(404, "Không tìm thấy nội dung.");
     if (typeof body.archive === "boolean") {
+      if (user.isBot) throw new ApiError(403, "Bot không được ẩn hoặc khôi phục nội dung.");
       await ref.update({ archivedAt: nullableArchive(body.archive) });
       return Response.json({ ok: true });
     }
@@ -30,6 +31,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ kind:
       const theory = typeof body.theory === "string" ? body.theory.trim() : "";
       if (theory.length > 20000) throw new ApiError(400, "Lý thuyết quá dài.");
       await ref.update({ title, theory });
+    } else if (kind === "exercise") {
+      await ref.update({ title: textField(body.title, "Tên bài tập", 120) });
     } else if (kind === "card") {
       const card = doc.data() as Card;
       const english = textField(body.english, "Từ tiếng Anh", 1000);
