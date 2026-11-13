@@ -25,9 +25,11 @@ export default function BotLogin() {
       setPassword("");
       router.replace("/admin");
       router.refresh();
-    } catch {
+    } catch (cause) {
       await signOut(firebaseAuth).catch(() => {});
-      setError("Không đăng nhập được. Kiểm tra tài khoản và mật khẩu Bot.");
+      setError(cause instanceof Error && !cause.message.startsWith("Firebase:")
+        ? cause.message
+        : "Không đăng nhập được. Kiểm tra tài khoản và mật khẩu Bot.");
     } finally {
       setBusy(false);
     }
