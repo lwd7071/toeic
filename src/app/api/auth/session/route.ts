@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     if (typeof idToken !== "string") throw new ApiError(400, "Thiếu thông tin đăng nhập.");
     const decoded = await adminAuth().verifyIdToken(idToken);
     if (bot && !isConfiguredBot(decoded, process.env.BOT_FIREBASE_UID)) throw new ApiError(403, "Tài khoản này không có quyền Bot.");
-    if (Date.now() / 1000 - decoded.auth_time > 5 * 60) throw new ApiError(401, "Hãy đăng nhập Google lại.");
+    if (Date.now() / 1000 - decoded.auth_time > 5 * 60) throw new ApiError(401, "Hãy đăng nhập lại.");
     const maxAge = 60 * 60 * 24 * 5;
     const session = await adminAuth().createSessionCookie(idToken, { expiresIn: maxAge * 1000 });
     (await cookies()).set("miu_session", session, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge });
