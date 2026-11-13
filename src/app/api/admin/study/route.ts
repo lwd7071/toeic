@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     catch { throw new ApiError(400, "Tháng không hợp lệ."); }
     const pageToken = params.get("pageToken") ?? undefined;
     if (pageToken && pageToken.length > 2000) throw new ApiError(400, "Trang không hợp lệ.");
-    const page = await adminAuth().listUsers(50, pageToken);
+    const page = await adminAuth().listUsers(20, pageToken);
     const accounts = page.users.filter(account => account.email?.toLowerCase() !== process.env.ADMIN_GOOGLE_EMAIL?.trim().toLowerCase());
     const students = await Promise.all(accounts.map(async account => {
       const days = await learnedDays(account.uid);
