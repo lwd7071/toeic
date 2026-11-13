@@ -3,6 +3,7 @@ import { jsonError, requireCsrf } from "@/lib/api";
 import { db } from "@/lib/firebase-admin";
 import { ListeningAttempt, ListeningItem, ListeningSet, normalizedTranscript } from "@/lib/listening";
 import { active, now } from "@/lib/models";
+import { qualifiedDay, studyDayRef } from "@/lib/study-store";
 
 export const runtime = "nodejs";
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -32,6 +33,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const ref = store.collection("listeningAttempts").doc(), batch = store.batch();
     batch.create(ref, attempt);
     answers.forEach((answer, index) => batch.create(store.collection("listeningAnswers").doc(), { ...answer, attemptId: ref.id, uid: user.uid, index }));
+    const day = qualifiedDay(new Date(attempt.completedAt));
+    if (day) batch.set(studyDayRef(user.uid, day.date), { completedAt: day.at }, { merge: true });
     await batch.commit();
     return Response.json({ id: ref.id, ...attempt, answers });
   } catch (error) { return jsonError(error); }

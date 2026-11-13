@@ -2,6 +2,7 @@ import { ApiError, requireViewer } from "@/lib/auth";
 import { jsonError, requireCsrf } from "@/lib/api";
 import { db } from "@/lib/firebase-admin";
 import { Answer, Attempt, Question, now } from "@/lib/models";
+import { qualifiedDay, studyDayRef } from "@/lib/study-store";
 
 export const runtime = "nodejs";
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -34,8 +35,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const answer: Answer = { attemptId: id, uid: user.uid, questionId, selected, correct, snapshot: { question: question.question, A: question.A, B: question.B, C: question.C, D: question.D, correctAnswer: question.correctAnswer, explanation: question.explanation }, answeredAt: now() };
       const count = attempt.answeredCount + 1;
       const complete = count === attempt.questionIds.length;
+      const completedAt = complete ? now() : null;
+      const day = complete ? qualifiedDay(new Date(completedAt!)) : null;
+      const dayRef = day ? studyDayRef(user.uid, day.date) : null;
+      const dayDoc = dayRef ? await transaction.get(dayRef) : null;
       transaction.create(answerRef, answer);
-      transaction.update(attemptRef, { answeredCount: count, correctCount: attempt.correctCount + Number(correct), status: complete ? "complete" : "in_progress", completedAt: complete ? now() : null });
+      transaction.update(attemptRef, { answeredCount: count, correctCount: attempt.correctCount + Number(correct), status: complete ? "complete" : "in_progress", completedAt });
+      if (dayRef && !dayDoc?.exists) transaction.create(dayRef, { completedAt: day!.at });
       return { correct, correctAnswer: question.correctAnswer, explanation: question.explanation, complete };
     });
     return Response.json(result);
