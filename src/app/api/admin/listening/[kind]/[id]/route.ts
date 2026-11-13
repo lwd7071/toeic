@@ -1,4 +1,4 @@
-import { ApiError, requireAdmin } from "@/lib/auth";
+import { ApiError, requireContentEditor } from "@/lib/auth";
 import { jsonError, nullableArchive, requireCsrf, textField } from "@/lib/api";
 import { db } from "@/lib/firebase-admin";
 import { driveLink, ListeningItem, ListeningSet } from "@/lib/listening";
@@ -6,7 +6,7 @@ import { driveLink, ListeningItem, ListeningSet } from "@/lib/listening";
 export const runtime = "nodejs";
 export async function PATCH(request: Request, context: { params: Promise<{ kind: string; id: string }> }) {
   try {
-    await requireCsrf(); await requireAdmin();
+    await requireCsrf(); const user = await requireContentEditor();
     const { kind, id } = await context.params;
     if (kind !== "set" && kind !== "item") throw new ApiError(400, "Loại nội dung không hợp lệ.");
     const store = db(), ref = store.collection(kind === "set" ? "listeningSets" : "listeningItems").doc(id);
@@ -14,6 +14,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ kind:
     if (!doc.exists) throw new ApiError(404, "Không tìm thấy nội dung.");
     const body = await request.json();
     if (typeof body.archive === "boolean") {
+      if (user.isBot) throw new ApiError(403, "Bot không được ẩn hoặc khôi phục nội dung.");
       await ref.update({ archivedAt: nullableArchive(body.archive) });
     } else if (kind === "set") {
       await ref.update({ title: textField(body.title, "Tên bài", 120) });

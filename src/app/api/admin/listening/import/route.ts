@@ -1,4 +1,4 @@
-import { ApiError, requireAdmin } from "@/lib/auth";
+import { ApiError, requireContentEditor } from "@/lib/auth";
 import { jsonError, requireCsrf } from "@/lib/api";
 import { db } from "@/lib/firebase-admin";
 import { ListeningSet, parseListeningCsv } from "@/lib/listening";
@@ -7,7 +7,7 @@ import { now } from "@/lib/models";
 export const runtime = "nodejs";
 async function handle(request: Request, commit: boolean) {
   try {
-    await requireCsrf(); await requireAdmin();
+    await requireCsrf(); await requireContentEditor();
     const form = await request.formData(), setId = form.get("setId"), file = form.get("file");
     if (typeof setId !== "string" || !setId || !(file instanceof File)) throw new ApiError(400, "Thiếu bài học hoặc file CSV.");
     const store = db(), setRef = store.collection("listeningSets").doc(setId), setDoc = await setRef.get();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isConfiguredAdmin } from "./auth-role";
+import { isConfiguredAdmin, isConfiguredBot } from "./auth-role";
 
 describe("admin identity", () => {
   const google = { email: "Owner@Gmail.com", email_verified: true, firebase: { sign_in_provider: "google.com" } };
@@ -9,5 +9,15 @@ describe("admin identity", () => {
     expect(isConfiguredAdmin({ ...google, firebase: { sign_in_provider: "password" } }, "owner@gmail.com")).toBe(false);
     expect(isConfiguredAdmin(google, "someone@gmail.com")).toBe(false);
     expect(isConfiguredAdmin(google, "")).toBe(false);
+  });
+});
+
+describe("bot identity", () => {
+  const bot = { uid: "bot-uid", firebase: { sign_in_provider: "password" } };
+  it("accepts only the configured password account UID", () => {
+    expect(isConfiguredBot(bot, " bot-uid ")).toBe(true);
+    expect(isConfiguredBot(bot, "other-uid")).toBe(false);
+    expect(isConfiguredBot({ ...bot, firebase: { sign_in_provider: "google.com" } }, "bot-uid")).toBe(false);
+    expect(isConfiguredBot(bot, "")).toBe(false);
   });
 });

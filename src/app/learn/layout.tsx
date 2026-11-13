@@ -6,5 +6,6 @@ export const dynamic = "force-dynamic";
 export default async function LearnLayout({ children }: { children: React.ReactNode }) {
   const user = await viewer();
   if (!user) redirect("/");
+  if (user.isBot) redirect("/admin");
   return <AppShell isAdmin={user.isAdmin} email={user.email}>{children}</AppShell>;
 }

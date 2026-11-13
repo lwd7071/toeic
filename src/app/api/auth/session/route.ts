@@ -2,15 +2,17 @@ import { cookies } from "next/headers";
 import { adminAuth } from "@/lib/firebase-admin";
 import { ApiError } from "@/lib/auth";
 import { jsonError, requireCsrf } from "@/lib/api";
+import { isConfiguredBot } from "@/lib/auth-role";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
     await requireCsrf();
-    const { idToken } = await request.json();
+    const { idToken, bot } = await request.json();
     if (typeof idToken !== "string") throw new ApiError(400, "Thiếu thông tin đăng nhập.");
     const decoded = await adminAuth().verifyIdToken(idToken);
+    if (bot && !isConfiguredBot(decoded, process.env.BOT_FIREBASE_UID)) throw new ApiError(403, "Tài khoản này không có quyền Bot.");
     if (Date.now() / 1000 - decoded.auth_time > 5 * 60) throw new ApiError(401, "Hãy đăng nhập Google lại.");
     const maxAge = 60 * 60 * 24 * 5;
     const session = await adminAuth().createSessionCookie(idToken, { expiresIn: maxAge * 1000 });
