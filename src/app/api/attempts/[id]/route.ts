@@ -12,16 +12,25 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const doc = await store.collection("quizAttempts").doc(id).get();
     const attempt = doc.data() as Attempt | undefined;
     if (!attempt || attempt.uid !== user.uid) throw new ApiError(404, "Không tìm thấy lượt làm bài.");
-    const answers = (await store.collection("quizAnswers").where("attemptId", "==", id).get()).docs.map(d => d.data() as Answer).sort((a, b) => attempt.questionIds.indexOf(a.questionId) - attempt.questionIds.indexOf(b.questionId));
-    let current = null;
-    if (attempt.status === "in_progress") {
-      const questionId = attempt.questionIds[attempt.answeredCount];
-      const question = (await store.collection("grammarQuestions").doc(questionId).get()).data() as Question | undefined;
-      if (!question) throw new ApiError(409, "Câu hỏi của lượt này không còn tồn tại.");
-      current = { id: questionId, question: question.question, A: question.A, B: question.B, C: question.C, D: question.D };
-    }
     const exerciseId = attempt.exerciseId ?? `default_${attempt.lessonId}`;
-    const exercise = await store.collection("grammarExercises").doc(exerciseId).get();
-    return Response.json({ attempt: { id, lessonId: attempt.lessonId, exerciseId, exerciseTitle: exercise.data()?.title ?? "Bài tập 1", status: attempt.status, answeredCount: attempt.answeredCount, correctCount: attempt.correctCount, total: attempt.questionIds.length }, current, answers });
+    const [answerSnap, exercise] = await Promise.all([
+      store.collection("quizAnswers").where("attemptId", "==", id).get(),
+      store.collection("grammarExercises").doc(exerciseId).get(),
+    ]);
+    const saved = new Map(answerSnap.docs.map(doc => { const answer = doc.data() as Answer; return [answer.questionId, answer] as const; }));
+    const unansweredIds = attempt.questionIds.filter(questionId => !saved.has(questionId));
+    const questionDocs = unansweredIds.length ? await store.getAll(...unansweredIds.map(questionId => store.collection("grammarQuestions").doc(questionId))) : [];
+    const unanswered = new Map(questionDocs.map(doc => [doc.id, doc.data() as Question | undefined]));
+    const questions = attempt.questionIds.map(questionId => {
+      const answer = saved.get(questionId);
+      const source = answer?.snapshot ?? unanswered.get(questionId);
+      if (!source) throw new ApiError(409, "Một câu hỏi của lượt này không còn tồn tại.");
+      return { id: questionId, question: source.question, A: source.A, B: source.B, C: source.C, D: source.D };
+    });
+    const answers = attempt.questionIds.flatMap(questionId => {
+      const answer = saved.get(questionId);
+      return answer ? [{ questionId, selected: answer.selected, correct: answer.correct, snapshot: answer.snapshot }] : [];
+    });
+    return Response.json({ attempt: { id, lessonId: attempt.lessonId, exerciseId, exerciseTitle: exercise.data()?.title ?? "Bài tập 1", status: attempt.status, answeredCount: attempt.answeredCount, correctCount: attempt.correctCount, total: attempt.questionIds.length }, questions, answers }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) { return jsonError(error); }
 }

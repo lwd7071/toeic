@@ -19,15 +19,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const answerRef = store.collection("quizAnswers").doc(`${id}_${questionId}`);
     const result = await store.runTransaction(async transaction => {
       const attemptDoc = await transaction.get(attemptRef);
-      const existing = await transaction.get(answerRef);
       const attempt = attemptDoc.data() as Attempt | undefined;
       if (!attempt || attempt.uid !== user.uid) throw new ApiError(404, "Không tìm thấy lượt làm bài.");
+      if (!attempt.questionIds.includes(questionId)) throw new ApiError(409, "Câu hỏi không thuộc lượt làm bài này.");
+      const existing = await transaction.get(answerRef);
       if (existing.exists) {
         const answer = existing.data() as Answer;
         if (answer.selected !== selected) throw new ApiError(409, "Câu này đã được trả lời.");
-        return { correct: answer.correct, correctAnswer: answer.snapshot.correctAnswer, explanation: answer.snapshot.explanation, complete: attempt.status === "complete" };
+        return { answer: { questionId, selected: answer.selected, correct: answer.correct, snapshot: answer.snapshot }, answeredCount: attempt.answeredCount, correctCount: attempt.correctCount, complete: attempt.status === "complete" };
       }
-      if (attempt.status !== "in_progress" || attempt.questionIds[attempt.answeredCount] !== questionId) throw new ApiError(409, "Hãy trả lời câu hiện tại trước.");
+      if (attempt.status !== "in_progress") throw new ApiError(409, "Lượt làm bài đã hoàn thành.");
       const questionDoc = await transaction.get(store.collection("grammarQuestions").doc(questionId));
       const question = questionDoc.data() as Question | undefined;
       if (!question) throw new ApiError(409, "Câu hỏi không còn tồn tại.");
@@ -42,7 +43,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       transaction.create(answerRef, answer);
       transaction.update(attemptRef, { answeredCount: count, correctCount: attempt.correctCount + Number(correct), status: complete ? "complete" : "in_progress", completedAt });
       if (dayRef && !dayDoc?.exists) transaction.create(dayRef, { completedAt: day!.at });
-      return { correct, correctAnswer: question.correctAnswer, explanation: question.explanation, complete };
+      return { answer: { questionId, selected, correct, snapshot: answer.snapshot }, answeredCount: count, correctCount: attempt.correctCount + Number(correct), complete };
     });
     return Response.json(result);
   } catch (error) { return jsonError(error); }
