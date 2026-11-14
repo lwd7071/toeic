@@ -39,7 +39,7 @@ export default function AdminListening() {
   const [failure, setFailure] = useState("");
   const current = data?.current ?? null;
   const items = data?.items ?? [];
-  useEffect(() => { if (current && !selected && data?.setsToken === setsPage.token) setSelected(current.id); }, [current, selected, data, setsPage.token]);
+  const activeSetId = selected || (data?.setsToken === setsPage.token ? current?.id ?? "" : "");
   useEffect(() => { itemsPage.reset(); setFile(null); setPreview(null); setEditing(null); setFields({}); }, [selected]);
   async function run(task: () => Promise<void>, success: string) {
     setBusy(true); setFailure(""); setMessage("");
@@ -57,9 +57,9 @@ export default function AdminListening() {
     await run(() => api(`/api/admin/listening/${type}/${id}`, { method: "PATCH", body: JSON.stringify({ archive: !archived }) }), archived ? "Đã khôi phục." : "Đã ẩn.");
   }
   async function inspect() {
-    if (!file || !selected) return;
+    if (!file || !activeSetId) return;
     setBusy(true); setFailure(""); setPreview(null);
-    const form = new FormData(); form.set("setId", selected); form.set("file", file);
+    const form = new FormData(); form.set("setId", activeSetId); form.set("file", file);
     try { setPreview(await api<Preview>("/api/admin/listening/import", { method: "POST", body: form })); setPreviewRow(0); }
     catch (cause) { setFailure(cause instanceof Error ? cause.message : "Không đọc được CSV."); }
     finally { setBusy(false); }
@@ -67,7 +67,7 @@ export default function AdminListening() {
   async function commit() {
     if (!file || !preview || preview.errors.length) return;
     await run(async () => {
-      const form = new FormData(); form.set("setId", selected); form.set("file", file); form.set("expectedHash", preview.hash);
+      const form = new FormData(); form.set("setId", activeSetId); form.set("file", file); form.set("expectedHash", preview.hash);
       await api("/api/admin/listening/import", { method: "PUT", body: form }); setFile(null); setPreview(null);
     }, `Đã nhập ${preview.count} câu.`);
   }
@@ -81,7 +81,7 @@ export default function AdminListening() {
   return <><Link className="back-link" href="/admin"><ArrowLeft size={17}/> Góc quản trị</Link><PageTitle title="Quản lý listening" description="Tạo bài, dán link Drive trong CSV rồi xem thử ảnh và MP3."/>
     <div className="two-col"><section className="paper-panel form-stack listening-create"><h2>Tạo bài mới</h2><label>Tên bài<input className="field" value={title} onChange={e => setTitle(e.target.value)} placeholder="Ví dụ: Mô tả tranh 1"/></label><label>Dạng bài<select className="field" value={kind} onChange={e => setKind(e.target.value as Kind)}><option value="dictation">Nghe chép</option><option value="picture">Mô tả tranh</option></select></label><button className="button button-primary" disabled={busy || !title.trim()} onClick={create}>Tạo bài</button></section>
     <section className="paper-panel"><h2>Các bài listening</h2><div className="admin-list">{data.sets.map(s => <div className={`admin-item ${s.archivedAt ? "archived" : ""}`} key={s.id}><div><h3>{s.title}</h3><p>{s.kind === "dictation" ? "Nghe chép" : "Mô tả tranh"} · {s.totalCount ?? 0} câu</p></div><div className="admin-actions"><button onClick={() => setSelected(s.id)}>Quản lý</button>{!data.isBot&&<button className={s.archivedAt ? "" : "danger"} disabled={busy} onClick={() => archive("set", s.id, Boolean(s.archivedAt))}>{s.archivedAt ? "Khôi phục" : "Ẩn"}</button>}</div></div>)}</div>{!data.sets.length && <p>Chưa có bài nào.</p>}<Pagination page={setsPage.page} nextPageToken={data.setsNextToken} previous={() => { setSelected(""); setsPage.previous(); }} next={token => { setSelected(""); setsPage.next(token); }}/></section></div>
-    {current && <section className="paper-panel spaced"><h2>{current.title}</h2><p>{current.kind === "dictation" ? "CSV: audio_url,transcript" : "CSV: image_url,audio_url,A,B,C,D,correct_answer"}. Link cần trỏ đến file trên Google Drive và được chia sẻ “Bất kỳ ai có đường liên kết – Người xem”. Nên dùng ảnh tối đa 5 MiB, MP3 tối đa 25 MiB; app không kiểm tra được dung lượng file trên Drive.</p><div className="form-stack"><label>Đổi tên bài<input className="field" value={fields.setTitle ?? current.title} onChange={e => setFields({ ...fields, setTitle: e.target.value })}/></label><button className="button button-small" disabled={busy || !(fields.setTitle ?? current.title).trim()} onClick={() => run(() => api(`/api/admin/listening/set/${selected}`, { method: "PATCH", body: JSON.stringify({ title: fields.setTitle ?? current.title }) }), "Đã đổi tên bài.")}>Lưu tên</button></div>
+    {current && <section className="paper-panel spaced"><h2>{current.title}</h2><p>{current.kind === "dictation" ? "CSV: audio_url,transcript" : "CSV: image_url,audio_url,A,B,C,D,correct_answer"}. Link cần trỏ đến file trên Google Drive và được chia sẻ “Bất kỳ ai có đường liên kết – Người xem”. Nên dùng ảnh tối đa 5 MiB, MP3 tối đa 25 MiB; app không kiểm tra được dung lượng file trên Drive.</p><div className="form-stack"><label>Đổi tên bài<input className="field" value={fields.setTitle ?? current.title} onChange={e => setFields({ ...fields, setTitle: e.target.value })}/></label><button className="button button-small" disabled={busy || !(fields.setTitle ?? current.title).trim()} onClick={() => run(() => api(`/api/admin/listening/set/${activeSetId}`, { method: "PATCH", body: JSON.stringify({ title: fields.setTitle ?? current.title }) }), "Đã đổi tên bài.")}>Lưu tên</button></div>
       <div className="import-box"><h3>Nhập câu từ CSV</h3><input type="file" accept=".csv,text/csv" aria-label="Chọn file CSV listening" onChange={e => { setFile(e.target.files?.[0] ?? null); setPreview(null); }}/><button className="button button-small" disabled={!file || busy || Boolean(current.archivedAt)} onClick={inspect}>Xem trước file</button>{preview && <><p className="spaced">{preview.count} dòng hợp lệ · {preview.errors.length} lỗi. Thử mở media của từng câu trước khi nhập.</p>{preview.errors.length > 0 && <div className="notice error" role="alert">{preview.errors.join("\n")}</div>}<div className="import-preview"><table><thead><tr><th>#</th><th>Audio</th><th>Ảnh / nội dung</th><th>Đáp án</th><th>Kiểm tra</th></tr></thead><tbody>{preview.rows.map((r, index) => <tr key={index}><td>{index + 2}</td><td>{r.audioUrl}</td><td>{r.imageUrl ?? r.transcript}</td><td>{r.correctAnswer ? `${r.correctAnswer}: ${r[r.correctAnswer]}` : "—"}</td><td><button onClick={() => setPreviewRow(index)}>Xem</button></td></tr>)}</tbody></table></div>{preview.rows[previewRow] && <MediaCheck key={`${preview.hash}-${previewRow}`} audio={preview.rows[previewRow].audioUrl} image={preview.rows[previewRow].imageUrl}/>}<button className="button button-primary" disabled={busy || preview.errors.length > 0 || Boolean(current.archivedAt)} onClick={commit}>Xác nhận nhập {preview.count} câu</button></>}</div>
       <h3 className="spaced">Các câu ({current.totalCount ?? 0})</h3><div className="admin-list">{items.map((i, index) => <div className={`admin-item ${i.archivedAt ? "archived" : ""}`} key={i.id}><div><h3>Câu {(itemsPage.page-1)*20+index + 1}</h3><p>{i.transcript ?? `Đáp án ${i.correctAnswer}`} · {i.audioUrl}</p></div><div className="admin-actions"><button onClick={() => edit(i)}>Sửa / Xem media</button>{!data.isBot&&<button className={i.archivedAt ? "" : "danger"} disabled={busy} onClick={() => archive("item", i.id, Boolean(i.archivedAt))}>{i.archivedAt ? "Khôi phục" : "Ẩn"}</button>}</div></div>)}</div><Pagination page={itemsPage.page} nextPageToken={data.itemsNextToken} previous={itemsPage.previous} next={itemsPage.next}/>
     </section>}

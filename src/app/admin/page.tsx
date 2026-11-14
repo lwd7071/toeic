@@ -40,8 +40,8 @@ export default function Admin() {
   const exercises=data?.exercises??[];
   const currentExercise=data?.currentExercise??null;
   const children=data?.children??[];
-  useEffect(()=>{if(!creating&&current&&!selected&&data?.tab===tab&&data.parentsToken===parentsPage.token)setSelected(current.id)},[current,selected,creating,data,tab,parentsPage.token]);
-  useEffect(()=>{if(tab==="questions"&&currentExercise&&!selectedExercise&&data?.tab===tab&&data.selected===selected)setSelectedExercise(currentExercise.id)},[tab,currentExercise,selectedExercise,data,selected]);
+  const activeParentId=selected||(data?.tab===tab&&data.parentsToken===parentsPage.token?current?.id??"":"");
+  const activeExerciseId=selectedExercise||(data?.tab===tab&&data.selected===selected?currentExercise?.id??"":"");
   useEffect(()=>{exercisesPage.reset();childrenPage.reset();setSelectedExercise("");setTitle(current?.title??"");setTheory(current&&"theory" in current&&typeof current.theory==="string"?current.theory:"");setFile(null);setPreview(null);setEditing(null)},[selected,tab,current?.id]);
   useEffect(()=>{childrenPage.reset();setExerciseTitle(currentExercise?.title??"");setFile(null);setPreview(null);setEditing(null)},[selectedExercise,currentExercise?.id]);
   function clearMessage(){setFail("");setNotice("")}
@@ -54,9 +54,9 @@ export default function Admin() {
   }
   async function saveParent(){if(!current)return;await act(()=>api(`/api/admin/content/${tab==="cards"?"topic":"lesson"}/${current.id}`,{method:"PATCH",body:JSON.stringify({title,theory})}),"Đã lưu thay đổi.")}
   async function createExercise(){
-    if(!selected||!exerciseTitle.trim())return;
+    if(!activeParentId||!exerciseTitle.trim())return;
     setBusy(true);clearMessage();
-    try{const result=await api<{id:string}>("/api/admin/content",{method:"POST",body:JSON.stringify({kind:"exercise",lessonId:selected,title:exerciseTitle})});await reload();setSelectedExercise(result.id);setCreatingExercise(false);setNotice("Đã tạo bài tập.")}
+    try{const result=await api<{id:string}>("/api/admin/content",{method:"POST",body:JSON.stringify({kind:"exercise",lessonId:activeParentId,title:exerciseTitle})});await reload();setSelectedExercise(result.id);setCreatingExercise(false);setNotice("Đã tạo bài tập.")}
     catch(cause){setFail(cause instanceof Error?cause.message:"Không tạo được bài tập.")}
     finally{setBusy(false)}
   }
@@ -66,16 +66,16 @@ export default function Admin() {
     await act(()=>api(`/api/admin/content/${kind}/${id}`,{method:"PATCH",body:JSON.stringify({archive:!archived})}),archived?"Đã khôi phục nội dung.":"Đã ẩn nội dung.");
   }
   async function inspect(){
-    if(!file||!selected||(tab==="questions"&&!selectedExercise))return;
+    if(!file||!activeParentId||(tab==="questions"&&!activeExerciseId))return;
     setBusy(true);clearMessage();setPreview(null);
-    const form=new FormData();form.set("kind",tab);form.set("parentId",tab==="cards"?selected:selectedExercise);form.set("file",file);
+    const form=new FormData();form.set("kind",tab);form.set("parentId",tab==="cards"?activeParentId:activeExerciseId);form.set("file",file);
     try{setPreview(await api<Preview>("/api/admin/import",{method:"POST",body:form}))}
     catch(cause){setFail(cause instanceof Error?cause.message:"Không đọc được file.")}
     finally{setBusy(false)}
   }
   async function commit(){
     if(!file||!preview||preview.errors.length)return;
-    const form=new FormData();form.set("kind",tab);form.set("parentId",tab==="cards"?selected:selectedExercise);form.set("file",file);form.set("expectedHash",preview.hash);
+    const form=new FormData();form.set("kind",tab);form.set("parentId",tab==="cards"?activeParentId:activeExerciseId);form.set("file",file);form.set("expectedHash",preview.hash);
     await act(async()=>{const result=await api<{imported:number}>("/api/admin/import",{method:"PUT",body:form});setFile(null);setPreview(null);return result},`Đã nhập ${preview.count} ${tab==="cards"?"thẻ":"câu hỏi"}.`);
   }
   function beginEdit(item:Card|Question){setEditing(item);setEditFields(Object.fromEntries(Object.entries(item).filter(([,v])=>typeof v==="string")) as Record<string,string>);clearMessage()}

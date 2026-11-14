@@ -28,31 +28,36 @@ async function handle(request: Request, commit: boolean) {
     const lessonRef = lessonId ? store.collection("grammarLessons").doc(lessonId) : null;
     if (lessonRef) { const lesson = await lessonRef.get(); if (!lesson.exists || lesson.data()?.archivedAt) throw new ApiError(404, "Bài ngữ pháp đã bị ẩn."); }
     const markerRefs = parsed.rows.map(row => store.collection("uniqueKeys").doc(uniqueId(typedKind, lessonId ?? parentId, row.key)));
-    const markers = markerRefs.length ? await store.getAll(...markerRefs) : [];
     const errors = [...parsed.errors];
-    markers.forEach((marker, index) => { if (marker.exists) errors.push(`Dòng ${index + 2}: nội dung đã có trong bài/chủ đề (có thể đang bị ẩn).`); });
-    if (!commit) return Response.json({ hash: parsed.hash, rows: parsed.rows, errors, count: parsed.rows.length });
+    if (!commit) {
+      const markers = markerRefs.length ? await store.getAll(...markerRefs) : [];
+      markers.forEach((marker, index) => { if (marker.exists) errors.push(`Dòng ${index + 2}: nội dung đã có trong bài/chủ đề (có thể đang bị ẩn).`); });
+      return Response.json({ hash: parsed.hash, rows: parsed.rows, errors, count: parsed.rows.length });
+    }
     if (errors.length) throw new ApiError(400, errors.join("\n"));
     const collection = store.collection(kind === "cards" ? "vocabCards" : "grammarQuestions");
-    await store.runTransaction(async tx => {
-      const parentDoc = await tx.get(parentRef);
-      const lessonDoc = lessonRef ? await tx.get(lessonRef) : null;
-      const uniqueDocs = await Promise.all(markerRefs.map(ref => tx.get(ref)));
-      if (!parentDoc.exists || parentDoc.data()?.archivedAt) throw new ApiError(409, "Chủ đề hoặc bài học đã bị ẩn.");
-      if (lessonRef && (!lessonDoc?.exists || lessonDoc.data()?.archivedAt)) throw new ApiError(409, "Bài ngữ pháp đã bị ẩn.");
-      if (uniqueDocs.some(doc => doc.exists)) throw new ApiError(409, "Nội dung vừa được nhập ở nơi khác. Hãy xem trước lại.");
-      parsed.rows.forEach((row, index) => {
-        const itemRef = collection.doc();
-        const common = { archivedAt: null, createdAt: now(), key: row.key };
-        const value = kind === "cards"
-          ? { ...common, topicId: parentId, english: (row as CardRow).english, vietnamese: (row as CardRow).vietnamese }
-          : { ...common, lessonId, exerciseId: parentId, ...(row as QuestionRow) };
-        tx.create(itemRef, value);
-        tx.create(markerRefs[index], { kind, itemId: itemRef.id });
+    try {
+      await store.runTransaction(async tx => {
+        const parentDoc = await tx.get(parentRef);
+        const lessonDoc = lessonRef ? await tx.get(lessonRef) : null;
+        if (!parentDoc.exists || parentDoc.data()?.archivedAt) throw new ApiError(409, "Chủ đề hoặc bài học đã bị ẩn.");
+        if (lessonRef && (!lessonDoc?.exists || lessonDoc.data()?.archivedAt)) throw new ApiError(409, "Bài ngữ pháp đã bị ẩn.");
+        parsed.rows.forEach((row, index) => {
+          const itemRef = collection.doc();
+          const common = { archivedAt: null, createdAt: now(), key: row.key };
+          const value = kind === "cards"
+            ? { ...common, topicId: parentId, english: (row as CardRow).english, vietnamese: (row as CardRow).vietnamese }
+            : { ...common, lessonId, exerciseId: parentId, ...(row as QuestionRow) };
+          tx.create(itemRef, value);
+          tx.create(markerRefs[index], { kind, itemId: itemRef.id });
+        });
+        tx.update(parentRef, { totalCount: FieldValue.increment(parsed.rows.length), activeCount: FieldValue.increment(parsed.rows.length) });
+        if (lessonRef && lessonDoc && !lessonDoc.data()?.archivedAt) tx.update(lessonRef, { totalCount: FieldValue.increment(parsed.rows.length), activeCount: FieldValue.increment(parsed.rows.length) });
       });
-      tx.update(parentRef, { totalCount: FieldValue.increment(parsed.rows.length), activeCount: FieldValue.increment(parsed.rows.length) });
-      if (lessonRef && lessonDoc && !lessonDoc.data()?.archivedAt) tx.update(lessonRef, { totalCount: FieldValue.increment(parsed.rows.length), activeCount: FieldValue.increment(parsed.rows.length) });
-    });
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "code" in error && error.code === 6) throw new ApiError(409, "Nội dung vừa được nhập ở nơi khác. Hãy xem trước lại.");
+      throw error;
+    }
     revalidateTag(kind === "cards" ? "content:topics" : "content:lessons");
     return Response.json({ imported: parsed.rows.length });
   } catch (error) { return jsonError(error); }

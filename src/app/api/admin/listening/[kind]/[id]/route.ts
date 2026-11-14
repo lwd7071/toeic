@@ -40,8 +40,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ kind:
       const audioUrl = driveLink(textField(body.audioUrl, "Link audio", 1000)).viewUrl;
       const imageUrl = setKind === "picture" ? driveLink(textField(body.imageUrl, "Link ảnh", 1000)).viewUrl : undefined;
       const key = `${imageUrl ?? ""}\u0000${audioUrl}`;
-      const duplicate = await store.collection("listeningItems").where("setId", "==", item.setId).get();
-      if (duplicate.docs.some(d => d.id !== id && d.data().key === key)) throw new ApiError(409, "Media đã có trong bài.");
+      if (key !== item.key) {
+        const duplicate = await store.collection("listeningItems").where("setId", "==", item.setId).where("key", "==", key).limit(1).get();
+        if (!duplicate.empty) throw new ApiError(409, "Media đã có trong bài.");
+      }
       if (setKind === "dictation") await ref.update({ audioUrl, transcript: textField(body.transcript, "Câu chép", 1000), key });
       else {
         if (!["A", "B", "C", "D"].includes(body.correctAnswer)) throw new ApiError(400, "Đáp án đúng không hợp lệ.");

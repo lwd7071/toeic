@@ -1,6 +1,22 @@
 {
   "indexes": [
     {
+      "collectionGroup": "cardProgress",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid", "order": "ASCENDING" },
+        { "fieldPath": "topicId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "listeningItems",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "setId", "order": "ASCENDING" },
+        { "fieldPath": "key", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "vocabTopics",
       "queryScope": "COLLECTION",
       "fields": [
