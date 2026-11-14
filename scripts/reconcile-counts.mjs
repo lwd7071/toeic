@@ -1,12 +1,12 @@
-import { cert, initializeApp } from "firebase-admin/app";
+import { applicationDefault, cert, initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
 const mode = process.argv[2];
 if (mode !== "check" && mode !== "repair") throw new Error("Dùng: node scripts/reconcile-counts.mjs check|repair");
 const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 if (!projectId) throw new Error("Thiếu NEXT_PUBLIC_FIREBASE_PROJECT_ID.");
-if (!process.env.FIRESTORE_EMULATOR_HOST && !process.env.FIREBASE_SERVICE_ACCOUNT_JSON) throw new Error("Cần FIREBASE_SERVICE_ACCOUNT_JSON để kiểm tra dữ liệu thật.");
-initializeApp(process.env.FIRESTORE_EMULATOR_HOST ? { projectId } : { projectId, credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)) });
+if (!process.env.FIRESTORE_EMULATOR_HOST && !process.env.FIREBASE_SERVICE_ACCOUNT_JSON && !process.env.GOOGLE_APPLICATION_CREDENTIALS) throw new Error("Cần FIREBASE_SERVICE_ACCOUNT_JSON hoặc GOOGLE_APPLICATION_CREDENTIALS để kiểm tra dữ liệu thật.");
+initializeApp(process.env.FIRESTORE_EMULATOR_HOST ? { projectId } : { projectId, credential: process.env.FIREBASE_SERVICE_ACCOUNT_JSON ? cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)) : applicationDefault() });
 const store = getFirestore();
 const names = ["vocabTopics", "vocabCards", "grammarLessons", "grammarExercises", "grammarQuestions", "listeningSets", "listeningItems", "cardProgress", "topicProgress", "userProgress", "quizAttempts"];
 const snapshots = await Promise.all(names.map(name => store.collection(name).get()));
