@@ -156,6 +156,7 @@ p{color:var(--muted)}
 .admin-actions button{border:0;background:#f4edfa;border-radius:8px;padding:7px 10px;font-size:.82rem;color:var(--ink);font-weight:700}
 .admin-actions button.danger{background:#ffe9ea;color:#8b344a}
 .form-stack{display:grid;gap:15px}.form-stack label{display:grid;gap:6px;font-weight:700;font-size:.9rem}
+.listening-create{align-self:start}.listening-create h2{margin:0 0 8px}.listening-create .button{justify-self:start;margin-top:4px}
 .field-textarea{min-height:150px;resize:vertical}.field-textarea.tall{min-height:300px}
 .theory-editor{display:grid;gap:9px;min-width:0}.theory-editor>label{font-weight:700;font-size:.9rem}.theory-editor-tabs{display:flex;gap:5px;justify-self:start;padding:4px;background:#f4edfa;border-radius:11px}.theory-editor-tabs button{border:0;border-radius:8px;padding:8px 14px;background:transparent;color:var(--muted);font-weight:700}.theory-editor-tabs button[aria-pressed=true]{background:#fff;color:var(--ink);box-shadow:0 2px 7px rgba(73,50,89,.11)}
 .theory-editor-preview{min-width:0;min-height:150px;padding:18px;border:1px solid var(--line);border-radius:12px;background:#fff}.theory-editor-preview>p{margin:0}
