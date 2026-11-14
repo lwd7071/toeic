@@ -19,13 +19,13 @@ async function page(collectionName: string, limit: number, token: string, search
 
 export const cachedTopics = unstable_cache(
   async (limit: number, token: string, search: string) => page("vocabTopics", limit, token, searchTitle(search)),
-  ["content-v2", "topics"], { tags: ["content:topics"], revalidate: TTL },
+  ["content-v3", "topics"], { tags: ["content:topics"], revalidate: TTL },
 );
 export const cachedLessons = unstable_cache(
   async (limit: number, token: string) => page("grammarLessons", limit, token),
-  ["content-v2", "lessons"], { tags: ["content:lessons"], revalidate: TTL },
+  ["content-v3", "lessons"], { tags: ["content:lessons"], revalidate: TTL },
 );
 export const cachedListening = unstable_cache(
   async (limit: number, token: string) => page("listeningSets", limit, token),
-  ["content-v2", "listening"], { tags: ["content:listening"], revalidate: TTL },
+  ["content-v3", "listening"], { tags: ["content:listening"], revalidate: TTL },
 );
