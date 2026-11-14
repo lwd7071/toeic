@@ -3,7 +3,7 @@ import { parse } from "csv-parse/sync";
 import { ApiError } from "./errors";
 
 export type ListeningKind = "dictation" | "picture";
-export type ListeningSet = { title: string; kind: ListeningKind; archivedAt: string | null; createdAt: string };
+export type ListeningSet = { title: string; kind: ListeningKind; totalCount: number; activeCount: number; archivedAt: string | null; createdAt: string };
 export type ListeningItem = { setId: string; audioUrl: string; imageUrl?: string; transcript?: string; A?: string; B?: string; C?: string; D?: string; correctAnswer?: "A" | "B" | "C" | "D"; key: string; archivedAt: string | null; createdAt: string };
 export type ListeningAttempt = { uid: string; setId: string; title: string; kind: ListeningKind; correct: number; total: number; completedAt: string };
 

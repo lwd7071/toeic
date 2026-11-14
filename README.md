@@ -32,6 +32,8 @@ npm test
 .\node_modules\.bin\playwright-cli.cmd run-code --filename scripts\smoke-emulator.js
 ```
 
+Để thử truy vấn trên 3.000 thẻ và kiểm tra công cụ đối chiếu, đặt `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080` và `NEXT_PUBLIC_FIREBASE_PROJECT_ID=demo-miu-toeic`, rồi chạy `node scripts/smoke-reads-emulator.mjs`, `node scripts/reconcile-counts.mjs check`, `node scripts/reconcile-counts.mjs repair`, và `check` lại. Lệnh `check` đầu tiên trả mã 1 khi thấy bộ đếm thử nghiệm cố tình để lệch.
+
 ## Tài khoản Bot quản lý bài học
 
 1. Trong Firebase Console > Authentication, bật phương thức **Email/Password** và tạo một tài khoản chỉ dành cho Bot. Tên đăng nhập là email của tài khoản này; không dùng Gmail cá nhân hay tài khoản Google của admin.
@@ -53,6 +55,16 @@ File UTF-8 (có BOM cũng được), tối đa 1 MB và 200 dòng. Câu ngữ ph
 Listening: admin tải ảnh và MP3 lên Google Drive, bật quyền **Bất kỳ ai có đường liên kết – Người xem** cho từng file, rồi dán link **từng file** dạng `https://drive.google.com/file/d/FILE_ID/view` vào CSV (không dùng link thư mục). Tạo bài ở `/admin/listening`, chọn dạng bài trước khi nhập CSV. App dùng trình xem nhúng của Drive để hiển thị ảnh và phát MP3; hãy thử từng câu trong trang xem trước trước khi nhập. Nên dùng ảnh tối đa 5 MiB và MP3 tối đa 25 MiB. Vì app chỉ nhận link, app không kiểm tra được dung lượng hoặc bảo đảm Drive sẽ luôn phát trực tiếp. Chỉ kết quả bài đã nộp mới được lưu vào Tiến độ.
 
 ## Triển khai Vercel
+
+### Chuyển sang bộ đếm và truy vấn có giới hạn
+
+Phiên bản này cần index và bộ đếm trước khi đưa API mới lên production. Sau khi quota Firestore đặt lại, tạm dừng nhập/sửa/ẩn nội dung trong lúc chuyển dữ liệu. Nếu dữ liệu cũ chưa có bài tập ngữ pháp, chạy `node scripts/migrate-grammar-exercises.mjs` trước bước đối chiếu bộ đếm:
+
+1. Triển khai index bằng `firebase deploy --only firestore:indexes --project <firebase-project-id>` và đợi tất cả index ở trạng thái **Enabled**.
+2. Trong môi trường có `NEXT_PUBLIC_FIREBASE_PROJECT_ID` và `FIREBASE_SERVICE_ACCOUNT_JSON`, chạy `node scripts/reconcile-counts.mjs check` để xem chênh lệch. Lệnh này thoát với mã 1 nếu có chênh lệch và không ghi dữ liệu.
+3. Chạy `node scripts/reconcile-counts.mjs repair`, rồi chạy `check` lần nữa đến khi không còn chênh lệch. Chỉ sau đó mới triển khai ứng dụng và cho phép nhập/sửa trở lại.
+
+Giữ script để chạy `check` định kỳ hoặc sau khi sửa dữ liệu trực tiếp trong Firestore Console. `repair` đọc toàn bộ nội dung một lần nên cũng tiêu tốn Reads; chạy khi còn đủ quota. Nếu sửa dữ liệu trực tiếp sau triển khai, cache nội dung chung có thể còn cũ qua request đầu sau mốc 15 phút trong lúc làm mới ở nền; quản trị không dùng cache. Thao tác qua app vô hiệu hóa cache ngay sau khi ghi thành công.
 
 Trước khi triển khai phiên bản có nhiều bài tập ngữ pháp trên dữ liệu cũ, chạy một lần `node scripts/migrate-grammar-exercises.mjs` với `NEXT_PUBLIC_FIREBASE_PROJECT_ID` và `FIREBASE_SERVICE_ACCOUNT_JSON` của dự án. Script tạo “Bài tập 1” cho mỗi bài ngữ pháp cũ và gắn các câu hỏi cũ vào đó; chạy lại không tạo trùng. Lượt làm bài và câu trả lời cũ được giữ nguyên.
 

@@ -3,6 +3,8 @@ import { jsonError, requireCsrf } from "@/lib/api";
 import { db } from "@/lib/firebase-admin";
 import { CardRow, ImportKind, parseImport, QuestionRow, uniqueId } from "@/lib/csv-import";
 import { now } from "@/lib/models";
+import { FieldValue } from "firebase-admin/firestore";
+import { revalidateTag } from "next/cache";
 
 export const runtime = "nodejs";
 
@@ -48,7 +50,10 @@ async function handle(request: Request, commit: boolean) {
         tx.create(itemRef, value);
         tx.create(markerRefs[index], { kind, itemId: itemRef.id });
       });
+      tx.update(parentRef, { totalCount: FieldValue.increment(parsed.rows.length), activeCount: FieldValue.increment(parsed.rows.length) });
+      if (lessonRef && lessonDoc && !lessonDoc.data()?.archivedAt) tx.update(lessonRef, { totalCount: FieldValue.increment(parsed.rows.length), activeCount: FieldValue.increment(parsed.rows.length) });
     });
+    revalidateTag(kind === "cards" ? "content:topics" : "content:lessons");
     return Response.json({ imported: parsed.rows.length });
   } catch (error) { return jsonError(error); }
 }

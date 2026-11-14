@@ -1,31 +1,35 @@
 import { requireViewer } from "@/lib/auth";
 import { jsonError } from "@/lib/api";
 import { db } from "@/lib/firebase-admin";
-import { active, Attempt, Card, Exercise, Lesson, Question, Topic } from "@/lib/models";
+import { Attempt, Exercise, Lesson, Topic } from "@/lib/models";
+import { cachedLessons, cachedTopics } from "@/lib/cached-content";
 
 export const runtime = "nodejs";
 export async function GET() {
   try {
     const user = await requireViewer();
     const store = db();
-    const [topicsSnap, cardsSnap, lessonsSnap, exercisesSnap, questionsSnap, progressSnap, attemptsSnap] = await Promise.all([
-      store.collection("vocabTopics").get(), store.collection("vocabCards").get(), store.collection("grammarLessons").get(),
-      store.collection("grammarExercises").get(), store.collection("grammarQuestions").get(), store.collection("cardProgress").where("uid", "==", user.uid).get(),
-      store.collection("quizAttempts").where("uid", "==", user.uid).get(),
+    const [topicsPage, lessonsPage, attemptSnap, progressDoc] = await Promise.all([
+      cachedTopics(3, "", ""),
+      cachedLessons(3, ""),
+      store.collection("quizAttempts").where("uid", "==", user.uid).where("status", "==", "in_progress").orderBy("startedAt", "desc").limit(1).get(),
+      store.collection("userProgress").doc(user.uid).get(),
     ]);
-    const cards = cardsSnap.docs.map(d => ({ id: d.id, ...d.data() as Card })).filter(active);
-    const progress = new Map(progressSnap.docs.map(d => [d.data().cardId as string, d.data().status as string]));
-    const attempts = attemptsSnap.docs.map(d => ({ id: d.id, ...d.data() as Attempt })).sort((a, b) => b.startedAt.localeCompare(a.startedAt));
-    const topics = topicsSnap.docs.map(d => ({ id: d.id, ...d.data() as Topic })).filter(active).map(t => {
-      const ownCards = cards.filter(c => c.topicId === t.id);
-      return { ...t, total: ownCards.length, remembered: ownCards.filter(c => progress.get(c.id) === "remembered").length, toReview: ownCards.filter(c => progress.get(c.id) === "review").length };
+    const summaries = topicsPage.items.length ? await store.getAll(...topicsPage.items.map(d => store.collection("topicProgress").doc(`${user.uid}_${d.id}`))) : [];
+    const topics = topicsPage.items.map((d, i) => {
+      const topic = d as unknown as Topic;
+      return { id: d.id, title: topic.title, total: topic.activeCount ?? 0, remembered: summaries[i].data()?.remembered ?? 0, toReview: summaries[i].data()?.review ?? 0 };
     });
-    const questions = questionsSnap.docs.map(d => ({ id: d.id, ...d.data() as Question })).filter(active);
-    const exercises = new Map(exercisesSnap.docs.map(d => [d.id, d.data() as Exercise]));
-    const lessons = lessonsSnap.docs.map(d => ({ id: d.id, ...d.data() as Lesson })).filter(active).map(l => {
-      const ownAttempts = attempts.filter(a => a.lessonId === l.id);
-      return { id: l.id, title: l.title, total: questions.filter(q => q.lessonId === l.id && !exercises.get(q.exerciseId)?.archivedAt).length, lastAttempt: ownAttempts[0] ? { id: ownAttempts[0].id, status: ownAttempts[0].status, correct: ownAttempts[0].correctCount, answered: ownAttempts[0].answeredCount, total: ownAttempts[0].questionIds.length } : null };
-    });
-    return Response.json({ topics, lessons, attempts: attempts.map(a => ({ id: a.id, lessonId: a.lessonId, exerciseTitle: exercises.get(a.exerciseId ?? `default_${a.lessonId}`)?.title ?? "Bài tập 1", correct: a.correctCount, answered: a.answeredCount, total: a.questionIds.length, status: a.status, startedAt: a.startedAt })) });
+    const lessons = await Promise.all(lessonsPage.items.map(async d => {
+      const lesson = d as unknown as Lesson;
+      const latest = await store.collection("quizAttempts").where("uid", "==", user.uid).where("lessonId", "==", d.id).orderBy("startedAt", "desc").limit(1).get();
+      const attempt = latest.docs[0]?.data() as Attempt | undefined;
+      return { id: d.id, title: lesson.title, total: lesson.activeCount ?? 0, lastAttempt: attempt ? { id: latest.docs[0].id, status: attempt.status, correct: attempt.correctCount, answered: attempt.answeredCount, total: attempt.questionIds.length } : null };
+    }));
+    const attemptDoc = attemptSnap.docs[0];
+    const attempt = attemptDoc?.data() as Attempt | undefined;
+    const exercise = attempt ? await store.collection("grammarExercises").doc(attempt.exerciseId ?? `default_${attempt.lessonId}`).get() : null;
+    const attempts = attempt ? [{ id: attemptDoc.id, lessonId: attempt.lessonId, exerciseTitle: (exercise?.data() as Exercise | undefined)?.title ?? "Bài tập 1", correct: attempt.correctCount, answered: attempt.answeredCount, total: attempt.questionIds.length, status: attempt.status, startedAt: attempt.startedAt }] : [];
+    return Response.json({ topics, lessons, attempts, reviewTotal: progressDoc.data()?.review ?? 0 }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) { return jsonError(error); }
 }

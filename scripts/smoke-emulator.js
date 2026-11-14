@@ -54,8 +54,8 @@ async page => {
   await page.getByText('1/2', { exact: true }).waitFor();
   const historyUrl = page.url();
   await page.goto(`${base}/admin`);
-  const content = await (await page.request.get(`${base}/api/admin/content`)).json();
-  const lesson = content.lessons.find(item => item.title === 'Bài danh từ');
+  const content = await (await page.request.get(`${base}/api/admin/content?tab=questions`)).json();
+  const lesson = content.parents.find(item => item.title === 'Bài danh từ');
   if (!lesson) throw new Error('Bài học vừa tạo không tồn tại.');
   const csrf = await (await page.request.get(`${base}/api/auth/csrf`)).json();
   const archive = await page.request.patch(`${base}/api/admin/content/lesson/${lesson.id}`, {

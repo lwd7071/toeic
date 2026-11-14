@@ -12,7 +12,7 @@ export default function LearnHome() {
   if (loading) return <Loading/>;
   if (error || !data) return <ErrorState message={error} retry={reload}/>;
   const resume = data.attempts.find(a => a.status === "in_progress");
-  const review = data.topics.reduce((sum, topic) => sum + topic.toReview, 0);
+  const review = data.reviewTotal;
   return <>
     <section className="hero-panel"><div className="hero-copy"><span className="sticker sticker-yellow"><Sparkles size={15}/> Hôm nay học gì?</span><h1>Miu chờ ní vào học đó!</h1><p>{resume ? "Bài ngữ pháp đang làm vẫn ở đây. Mình tiếp tục nhé?" : review ? `Có ${review} thẻ đang chờ ôn lại. Học một chút cùng Miu nha!` : "Một chút từ vựng, một chút ngữ pháp. Bắt đầu từ điều ní thích nhé!"}</p><Link href={resume ? `/learn/quiz/${resume.id}` : data.topics.length ? "/learn/vocabulary" : "/learn/grammar"} className="button button-primary">{resume ? "Tiếp tục làm bài" : "Bắt đầu học"}<ArrowRight size={18}/></Link></div><Mascot size={330}/></section>
     <div className="section-heading"><h2>Bộ từ của ní</h2><Link href="/learn/vocabulary">Xem tất cả <ArrowRight size={15}/></Link></div>

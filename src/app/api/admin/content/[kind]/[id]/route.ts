@@ -3,6 +3,9 @@ import { jsonError, nullableArchive, requireCsrf, textField } from "@/lib/api";
 import { db } from "@/lib/firebase-admin";
 import { normalizedKey, uniqueId } from "@/lib/csv-import";
 import { Card, Question } from "@/lib/models";
+import { countChange, searchTitle } from "@/lib/content-counts";
+import { FieldValue } from "firebase-admin/firestore";
+import { revalidateTag } from "next/cache";
 
 export const runtime = "nodejs";
 const collections: Record<string, string> = { topic: "vocabTopics", card: "vocabCards", lesson: "grammarLessons", exercise: "grammarExercises", question: "grammarQuestions" };
@@ -21,11 +24,44 @@ export async function PATCH(request: Request, context: { params: Promise<{ kind:
     if (!doc.exists) throw new ApiError(404, "Không tìm thấy nội dung.");
     if (typeof body.archive === "boolean") {
       if (user.isBot) throw new ApiError(403, "Bot không được ẩn hoặc khôi phục nội dung.");
-      await ref.update({ archivedAt: nullableArchive(body.archive) });
+      const archivedAt = nullableArchive(body.archive);
+      if (Boolean(doc.data()?.archivedAt) === Boolean(archivedAt)) return Response.json({ ok: true });
+      await store.runTransaction(async tx => {
+        const current = await tx.get(ref);
+        if (!current.exists) throw new ApiError(404, "Không tìm thấy nội dung.");
+        const data = current.data()!;
+        const change = countChange({ archivedAt: data.archivedAt }, { archivedAt });
+        const parentRef = kind === "card" ? store.collection("vocabTopics").doc(data.topicId) : kind === "question" ? store.collection("grammarExercises").doc(data.exerciseId) : kind === "exercise" ? store.collection("grammarLessons").doc(data.lessonId) : null;
+        const parent = parentRef ? await tx.get(parentRef) : null;
+        const lessonRef = kind === "question" ? store.collection("grammarLessons").doc(data.lessonId) : null;
+        const lesson = lessonRef ? await tx.get(lessonRef) : null;
+        const progress = kind === "card" ? await tx.get(store.collection("cardProgress").where("cardId", "==", id)) : null;
+        const summaries = progress ? await Promise.all(progress.docs.map(p => tx.get(store.collection("topicProgress").doc(`${p.data().uid}_${data.topicId}`)))) : [];
+        const topicSummaries = kind === "topic" ? await tx.get(store.collection("topicProgress").where("topicId", "==", id)) : null;
+        tx.update(ref, { archivedAt });
+        if (parentRef && parent) {
+          if (kind === "exercise") tx.update(parentRef, { activeCount: FieldValue.increment(change.activeCount * (data.activeCount ?? 0)) });
+          else tx.update(parentRef, { activeCount: FieldValue.increment(change.activeCount) });
+        }
+        if (lessonRef && lesson && !parent?.data()?.archivedAt) tx.update(lessonRef, { activeCount: FieldValue.increment(change.activeCount) });
+        progress?.docs.forEach((p, index) => {
+          const status = p.data().status;
+          if (status === "remembered" || status === "review") {
+            tx.set(summaries[index].ref, { [status]: FieldValue.increment(change.activeCount) }, { merge: true });
+            if (!parent?.data()?.archivedAt) tx.set(store.collection("userProgress").doc(p.data().uid), { [status]: FieldValue.increment(change.activeCount) }, { merge: true });
+          }
+        });
+        topicSummaries?.docs.forEach(summary => {
+          const values = summary.data();
+          tx.set(store.collection("userProgress").doc(values.uid), { remembered: FieldValue.increment(change.activeCount * (values.remembered ?? 0)), review: FieldValue.increment(change.activeCount * (values.review ?? 0)) }, { merge: true });
+        });
+      });
+      revalidateTag(kind === "topic" || kind === "card" ? "content:topics" : "content:lessons");
       return Response.json({ ok: true });
     }
     if (kind === "topic") {
-      await ref.update({ title: textField(body.title, "Tên chủ đề", 120) });
+      const title = textField(body.title, "Tên chủ đề", 120);
+      await ref.update({ title, searchTitle: searchTitle(title) });
     } else if (kind === "lesson") {
       const title = textField(body.title, "Tên bài", 120);
       const theory = typeof body.theory === "string" ? body.theory.trim() : "";
@@ -73,6 +109,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ kind:
         tx.update(ref, { question: text, A, B, C, D, explanation, correctAnswer: body.correctAnswer, key });
       });
     }
+    revalidateTag(kind === "topic" || kind === "card" ? "content:topics" : "content:lessons");
     return Response.json({ ok: true });
   } catch (error) { return jsonError(error); }
 }

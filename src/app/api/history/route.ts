@@ -1,28 +1,56 @@
 import { ApiError, requireViewer } from "@/lib/auth";
 import { jsonError } from "@/lib/api";
 import { db } from "@/lib/firebase-admin";
-import { PAGE_SIZE, pageToken } from "@/lib/pagination";
+import { PAGE_SIZE } from "@/lib/pagination";
 import { Attempt, Exercise, Lesson } from "@/lib/models";
 import { ListeningAttempt } from "@/lib/listening";
+
+type Cursor = [string, string] | null;
+function cursorToken(request: Request): { g: Cursor; l: Cursor } {
+  const raw = new URL(request.url).searchParams.get("pageToken");
+  if (!raw) return { g: null, l: null };
+  try {
+    if (raw.length > 500 || !/^[\w-]+$/.test(raw)) throw new Error();
+    const value = JSON.parse(Buffer.from(raw, "base64url").toString()) as { g: Cursor; l: Cursor };
+    for (const cursor of [value.g, value.l]) if (cursor !== null && (!Array.isArray(cursor) || cursor.length !== 2 || !Number.isFinite(Date.parse(cursor[0])) || !/^[\w-]+$/.test(cursor[1]))) throw new Error();
+    return value;
+  } catch { throw new ApiError(400, "Trang không hợp lệ."); }
+}
 
 export const runtime = "nodejs";
 export async function GET(request: Request) {
   try {
-    const user = await requireViewer(), store = db(), token = pageToken(request);
-    const [grammarSnap, listeningSnap, lessonsSnap, exercisesSnap] = await Promise.all([
-      store.collection("quizAttempts").where("uid", "==", user.uid).get(),
-      store.collection("listeningAttempts").where("uid", "==", user.uid).get(),
-      store.collection("grammarLessons").get(), store.collection("grammarExercises").get(),
+    const user = await requireViewer(), store = db(), cursor = cursorToken(request);
+    const grammar = store.collection("quizAttempts").where("uid", "==", user.uid).orderBy("startedAt", "desc").orderBy("__name__", "desc");
+    const listening = store.collection("listeningAttempts").where("uid", "==", user.uid).orderBy("completedAt", "desc").orderBy("__name__", "desc");
+    const [grammarSnap, listeningSnap, grammarCount, listeningCount] = await Promise.all([
+      (cursor.g ? grammar.startAfter(...cursor.g) : grammar).limit(PAGE_SIZE + 1).get(),
+      (cursor.l ? listening.startAfter(...cursor.l) : listening).limit(PAGE_SIZE + 1).get(),
+      store.collection("quizAttempts").where("uid", "==", user.uid).where("status", "==", "complete").count().get(),
+      store.collection("listeningAttempts").where("uid", "==", user.uid).count().get(),
     ]);
-    const lessons = new Map(lessonsSnap.docs.map(d => [d.id, (d.data() as Lesson).title]));
-    const exercises = new Map(exercisesSnap.docs.map(d => [d.id, (d.data() as Exercise).title]));
-    const items = [
-      ...grammarSnap.docs.map(d => { const a = d.data() as Attempt; return { id: d.id, kind: "grammar" as const, title: `${lessons.get(a.lessonId) ?? "Bài đã ẩn"} · ${exercises.get(a.exerciseId ?? `default_${a.lessonId}`) ?? "Bài tập 1"}`, correct: a.correctCount, total: a.questionIds.length, answered: a.answeredCount, status: a.status, at: a.startedAt }; }),
-      ...listeningSnap.docs.map(d => { const a = d.data() as ListeningAttempt; return { id: d.id, kind: "listening" as const, title: a.title, correct: a.correct, total: a.total, answered: a.total, status: "complete", at: a.completedAt }; }),
-    ].sort((a, b) => b.at.localeCompare(a.at) || a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id));
-    const start = token ? items.findIndex(item => `${item.kind}_${item.id}` === token) + 1 : 0;
-    if (token && start === 0) throw new ApiError(400, "Trang không hợp lệ.");
-    const page = items.slice(start, start + PAGE_SIZE);
-    return Response.json({ items: page, nextPageToken: items.length > start + PAGE_SIZE ? `${page.at(-1)!.kind}_${page.at(-1)!.id}` : null, grammarCompleted: grammarSnap.docs.filter(d => (d.data() as Attempt).status === "complete").length, listeningCompleted: listeningSnap.size });
+    const ordered = [
+      ...grammarSnap.docs.map(d => ({ id: d.id, kind: "grammar" as const, at: (d.data() as Attempt).startedAt, data: d.data() as Attempt })),
+      ...listeningSnap.docs.map(d => ({ id: d.id, kind: "listening" as const, at: (d.data() as ListeningAttempt).completedAt, data: d.data() as ListeningAttempt })),
+    ].sort((a, b) => b.at.localeCompare(a.at) || a.kind.localeCompare(b.kind) || b.id.localeCompare(a.id));
+    const page = ordered.slice(0, PAGE_SIZE);
+    const lessonIds = [...new Set(page.filter(a => a.kind === "grammar").map(a => (a.data as Attempt).lessonId))];
+    const exerciseIds = [...new Set(page.filter(a => a.kind === "grammar").map(a => { const attempt = a.data as Attempt; return attempt.exerciseId ?? `default_${attempt.lessonId}`; }))];
+    const [lessonDocs, exerciseDocs] = await Promise.all([
+      lessonIds.length ? store.getAll(...lessonIds.map(id => store.collection("grammarLessons").doc(id))) : [],
+      exerciseIds.length ? store.getAll(...exerciseIds.map(id => store.collection("grammarExercises").doc(id))) : [],
+    ]);
+    const lessons = new Map(lessonDocs.map(d => [d.id, (d.data() as Lesson | undefined)?.title]));
+    const exercises = new Map(exerciseDocs.map(d => [d.id, (d.data() as Exercise | undefined)?.title]));
+    const items = page.map(a => a.kind === "grammar" ? (() => {
+      const attempt = a.data as Attempt;
+      return { id: a.id, kind: a.kind, title: `${lessons.get(attempt.lessonId) ?? "Bài đã ẩn"} · ${exercises.get(attempt.exerciseId ?? `default_${attempt.lessonId}`) ?? "Bài tập 1"}`, correct: attempt.correctCount, total: attempt.questionIds.length, answered: attempt.answeredCount, status: attempt.status, at: a.at };
+    })() : (() => {
+      const attempt = a.data as ListeningAttempt;
+      return { id: a.id, kind: a.kind, title: attempt.title, correct: attempt.correct, total: attempt.total, answered: attempt.total, status: "complete", at: a.at };
+    })());
+    const next = { ...cursor };
+    for (const a of page) next[a.kind === "grammar" ? "g" : "l"] = [a.at, a.id];
+    return Response.json({ items, nextPageToken: ordered.length > PAGE_SIZE ? Buffer.from(JSON.stringify(next)).toString("base64url") : null, grammarCompleted: grammarCount.data().count, listeningCompleted: listeningCount.data().count });
   } catch (error) { return jsonError(error); }
 }

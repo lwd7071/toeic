@@ -3,6 +3,8 @@ import { jsonError, requireCsrf } from "@/lib/api";
 import { db } from "@/lib/firebase-admin";
 import { ListeningSet, parseListeningCsv } from "@/lib/listening";
 import { now } from "@/lib/models";
+import { FieldValue } from "firebase-admin/firestore";
+import { revalidateTag } from "next/cache";
 
 export const runtime = "nodejs";
 async function handle(request: Request, commit: boolean) {
@@ -27,7 +29,9 @@ async function handle(request: Request, commit: boolean) {
       if (!current.exists || current.data()?.archivedAt) throw new ApiError(409, "Bài đã bị ẩn.");
       if (latest.docs.some(d => parsed.rows.some(row => row.key === d.data().key))) throw new ApiError(409, "Media vừa được nhập. Hãy xem trước lại.");
       parsed.rows.forEach(row => tx.create(store.collection("listeningItems").doc(), { ...row, setId, archivedAt: null, createdAt: now() }));
+      tx.update(setRef, { totalCount: FieldValue.increment(parsed.count), activeCount: FieldValue.increment(parsed.count) });
     });
+    revalidateTag("content:listening");
     return Response.json({ imported: parsed.count });
   } catch (error) { return jsonError(error); }
 }

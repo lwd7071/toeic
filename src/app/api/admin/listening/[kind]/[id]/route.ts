@@ -2,6 +2,9 @@ import { ApiError, requireContentEditor } from "@/lib/auth";
 import { jsonError, nullableArchive, requireCsrf, textField } from "@/lib/api";
 import { db } from "@/lib/firebase-admin";
 import { driveLink, ListeningItem, ListeningSet } from "@/lib/listening";
+import { countChange } from "@/lib/content-counts";
+import { FieldValue } from "firebase-admin/firestore";
+import { revalidateTag } from "next/cache";
 
 export const runtime = "nodejs";
 export async function PATCH(request: Request, context: { params: Promise<{ kind: string; id: string }> }) {
@@ -15,7 +18,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ kind:
     const body = await request.json();
     if (typeof body.archive === "boolean") {
       if (user.isBot) throw new ApiError(403, "Bot không được ẩn hoặc khôi phục nội dung.");
-      await ref.update({ archivedAt: nullableArchive(body.archive) });
+      const archivedAt = nullableArchive(body.archive);
+      if (kind === "item") {
+        await store.runTransaction(async tx => {
+          const current = await tx.get(ref);
+          if (!current.exists) throw new ApiError(404, "Không tìm thấy câu.");
+          const item = current.data() as ListeningItem;
+          const change = countChange(item, { archivedAt });
+          if (!change.activeCount) return;
+          tx.update(ref, { archivedAt });
+          tx.update(store.collection("listeningSets").doc(item.setId), { activeCount: FieldValue.increment(change.activeCount) });
+        });
+      } else await ref.update({ archivedAt });
     } else if (kind === "set") {
       await ref.update({ title: textField(body.title, "Tên bài", 120) });
     } else {
@@ -34,6 +48,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ kind:
         await ref.update({ imageUrl, audioUrl, A: textField(body.A, "A", 1000), B: textField(body.B, "B", 1000), C: textField(body.C, "C", 1000), D: textField(body.D, "D", 1000), correctAnswer: body.correctAnswer, key });
       }
     }
+    revalidateTag("content:listening");
     return Response.json({ ok: true });
   } catch (error) { return jsonError(error); }
 }
