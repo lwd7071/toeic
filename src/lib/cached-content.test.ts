@@ -26,16 +26,10 @@ describe("shared content cache", () => {
     expect(page.nextPageToken).toBe("item19");
     expect(methods).toContainEqual(["startAt", "công"]);
     expect(methods).toContainEqual(["limit", 21]);
-    expect(unstableCache.mock.calls.map(call => call[1])).toEqual([
-      ["content-v3", "topics"],
-      ["content-v3", "lessons"],
-      ["content-v3", "listening"],
-    ]);
-    expect(unstableCache.mock.calls.map(call => call[2])).toEqual([
-      { tags: ["content:topics"], revalidate: 900 },
-      { tags: ["content:lessons"], revalidate: 900 },
-      { tags: ["content:listening"], revalidate: 900 },
-    ]);
+    for (const [key, tag] of [["topics", "topics"], ["lessons", "lessons"], ["listening", "listening"], ["cards", "topics"], ["questions", "lessons"], ["listening-set", "listening"]]) {
+      const call = unstableCache.mock.calls.find(call => (call[1] as string[])[1] === key);
+      expect(call?.[2]).toEqual({ tags: [`content:${tag}`], revalidate: 900 });
+    }
     expect(cachedLessons).toBeTypeOf("function");
     expect(cachedListening).toBeTypeOf("function");
   });

@@ -13,6 +13,20 @@ export async function GET(request: Request) {
     const store = db();
     const params = new URL(request.url).searchParams;
     const token = (key: string) => { const value = params.get(key) ?? ""; if (value && !/^[\w-]{1,200}$/.test(value)) throw new ApiError(400, "Trang không hợp lệ."); return value; };
+    const section = params.get("section");
+    if (section === "sets") {
+      const page = await firestorePage(store.collection("listeningSets"), token("sets"));
+      return Response.json({ sets: page.docs.map(d => ({ id: d.id, ...d.data() })), setsNextToken: page.nextPageToken, isBot: user.isBot });
+    }
+    if (section === "items") {
+      const id = token("selected");
+      if (!id) return Response.json({ current: null, items: [], itemsNextToken: null });
+      const selected = await store.collection("listeningSets").doc(id).get();
+      const current = selected.exists ? { id: selected.id, ...selected.data() } : null;
+      const page = current ? await firestorePage(store.collection("listeningItems").where("setId", "==", id), token("items")) : null;
+      return Response.json({ current, items: page?.docs.map(d => ({ id: d.id, ...d.data() })) ?? [], itemsNextToken: page?.nextPageToken ?? null });
+    }
+    if (section) throw new ApiError(400, "Phần danh sách không hợp lệ.");
     const setCollection = store.collection("listeningSets");
     const sets = await firestorePage(setCollection, token("sets"));
     const selectedId = token("selected");

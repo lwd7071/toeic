@@ -9,7 +9,7 @@ import { useLoad } from "@/lib/use-load";
 
 export default function Grammar() {
   const pagination = usePagination();
-  const { data, error, loading, reload } = useLoad<{items:HomeData["lessons"];nextPageToken:string|null}>(`/api/catalog?kind=lessons&pageToken=${pagination.token}`);
+  const { data, error, loading, reload } = useLoad<{items:HomeData["lessons"];nextPageToken:string|null}>(`/api/catalog?kind=lessons&pageToken=${pagination.token}`, true);
   if (loading) return <Loading/>;
   if (error || !data) return <ErrorState message={error} retry={reload}/>;
   return <><PageTitle title="Góc ngữ pháp" description="Đọc một chút lý thuyết rồi luyện ngay với Miu."/>

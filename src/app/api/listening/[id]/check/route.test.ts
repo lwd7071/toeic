@@ -7,6 +7,10 @@ const { requireViewer, requireCsrf, db, documents } = vi.hoisted(() => ({
 vi.mock("@/lib/auth", () => ({ requireViewer, ApiError }));
 vi.mock("@/lib/api", () => ({ requireCsrf, jsonError: (error: ApiError) => Response.json({ error: error.message }, { status: error.status }) }));
 vi.mock("@/lib/firebase-admin", () => ({ db }));
+vi.mock("@/lib/cached-content", () => ({ cachedListeningSet: async (id: string) => ({
+  set: { id, ...documents.get(`listeningSets/${id}`) as object },
+  items: [...documents.entries()].filter(([path, value]) => path.startsWith("listeningItems/") && (value as { setId: string }).setId === id).map(([path, value]) => ({ id: path.split("/")[1], ...value as object })),
+}) }));
 
 import { POST } from "./route";
 

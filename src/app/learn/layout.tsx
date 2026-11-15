@@ -7,5 +7,5 @@ export default async function LearnLayout({ children }: { children: React.ReactN
   const user = await viewer();
   if (!user) redirect("/");
   if (user.isBot) redirect("/admin");
-  return <AppShell isAdmin={user.isAdmin} email={user.email}>{children}</AppShell>;
+  return <AppShell isAdmin={user.isAdmin} email={user.email} uid={user.uid}>{children}</AppShell>;
 }

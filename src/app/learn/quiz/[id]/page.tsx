@@ -2,18 +2,19 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, RotateCcw, X } from "lucide-react";
 import { ErrorState, Loading } from "@/components/ui";
 import { api } from "@/lib/api-client";
 import { useLoad } from "@/lib/use-load";
+import { ViewerUid, invalidateLoadCache } from "@/lib/use-load";
 
 type Choice = "A" | "B" | "C" | "D";
-type Question = { id: string; question: string; A: string; B: string; C: string; D: string };
+type Question = { id: string; question: string; A: string; B: string; C: string; D: string; correctAnswer?: Choice; explanation?: string };
 type Snapshot = Omit<Question, "id"> & { correctAnswer: Choice; explanation: string };
 type Answer = { questionId: string; selected: Choice; correct: boolean; snapshot: Snapshot };
 type Data = {
-  attempt: { id: string; lessonId: string; exerciseId: string; exerciseTitle: string; status: "in_progress" | "complete"; answeredCount: number; correctCount: number; total: number };
+  attempt: { id: string; lessonId: string; exerciseId: string; exerciseTitle: string; status: "in_progress" | "complete"; answeredCount: number; correctCount: number; total: number; gradingMode: "batch" | "legacy" };
   questions: Question[];
   answers: Answer[];
 };
@@ -22,6 +23,7 @@ const choices: Choice[] = ["A", "B", "C", "D"];
 
 export default function Quiz() {
   const id = useParams<{ id: string }>().id;
+  const uid = useContext(ViewerUid);
   const router = useRouter();
   const { data, error, loading, reload } = useLoad<Data>(`/api/attempts/${id}`);
   const [newAnswers, setNewAnswers] = useState<Record<string, Answer>>({});
@@ -30,6 +32,9 @@ export default function Quiz() {
   const [showSummary, setShowSummary] = useState(false);
   const [retryBusy, setRetryBusy] = useState(false);
   const [retryError, setRetryError] = useState("");
+  const [submitBusy, setSubmitBusy] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [submitted, setSubmitted] = useState(false);
   const inFlight = useRef(new Set<string>());
   const summaryRef = useRef<HTMLElement>(null);
 
@@ -41,7 +46,24 @@ export default function Quiz() {
     setShowSummary(false);
     setRetryBusy(false);
     setRetryError("");
+    setSubmitted(false);
+    setSubmitError("");
   }, [id]);
+  useEffect(() => {
+    if (!data || data.attempt.gradingMode !== "batch") return;
+    if (data.attempt.status !== "in_progress") { try { sessionStorage.removeItem(`miu_quiz_${uid}_${id}`); } catch {} return; }
+    try {
+      const stored = JSON.parse(sessionStorage.getItem(`miu_quiz_${uid}_${id}`) ?? "{}") as Record<string, Choice>;
+      const restored: Record<string, Answer> = {};
+      for (const question of data.questions) {
+        const choice = stored[question.id];
+        if (!choices.includes(choice) || !question.correctAnswer || question.explanation === undefined) continue;
+        restored[question.id] = { questionId: question.id, selected: choice, correct: choice === question.correctAnswer,
+          snapshot: { question: question.question, A: question.A, B: question.B, C: question.C, D: question.D, correctAnswer: question.correctAnswer, explanation: question.explanation } };
+      }
+      setNewAnswers(restored);
+    } catch { try { sessionStorage.removeItem(`miu_quiz_${uid}_${id}`); } catch {} }
+  }, [data, id, uid]);
   useEffect(() => {
     if (!showSummary) return;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -57,16 +79,31 @@ export default function Quiz() {
   const correct = [...answers.values()].filter(answer => answer.correct).length;
   const total = data?.attempt.total ?? 0;
   const complete = total > 0 && answered === total;
-  const summaryVisible = complete && (showSummary || data?.attempt.status === "complete");
+  const summaryVisible = complete && (data?.attempt.status === "complete" || submitted) && (showSummary || data?.attempt.status === "complete");
 
   async function saveAnswer(questionId: string, selected: Choice) {
     if (!data || answers.has(questionId) || inFlight.current.has(questionId) || complete) return;
+    if (data.attempt.gradingMode === "batch") {
+      const question = data.questions.find(q => q.id === questionId);
+      if (!question?.correctAnswer || question.explanation === undefined) return;
+      inFlight.current.add(questionId);
+      const answer: Answer = { questionId, selected, correct: selected === question.correctAnswer,
+        snapshot: { question: question.question, A: question.A, B: question.B, C: question.C, D: question.D, correctAnswer: question.correctAnswer, explanation: question.explanation } };
+      setNewAnswers(previous => ({ ...previous, [questionId]: answer }));
+      try {
+        const key = `miu_quiz_${uid}_${id}`;
+        const stored = JSON.parse(sessionStorage.getItem(key) ?? "{}") as Record<string, Choice>;
+        sessionStorage.setItem(key, JSON.stringify({ ...stored, [questionId]: selected }));
+      } catch { /* The answer remains available in this page when storage is disabled. */ }
+      return;
+    }
     inFlight.current.add(questionId);
     setPending(previous => new Set(previous).add(questionId));
     setErrors(previous => ({ ...previous, [questionId]: "" }));
     try {
       const result = await api<SaveResult>(`/api/attempts/${id}/answer`, { method: "POST", body: JSON.stringify({ questionId, selected }) });
       setNewAnswers(previous => ({ ...previous, [questionId]: result.answer }));
+      if (result.complete) invalidateLoadCache(uid, ["/api/home", "/api/catalog?kind=lessons", `/api/lessons/${data.attempt.lessonId}`, "/api/history?", "/api/study?"]);
     } catch (cause) {
       setErrors(previous => ({ ...previous, [questionId]: cause instanceof Error ? cause.message : "Không lưu được đáp án. Thử lại nhé." }));
     } finally {
@@ -75,12 +112,26 @@ export default function Quiz() {
     }
   }
 
+  async function submit() {
+    if (!data || !complete || submitBusy) return;
+    setSubmitBusy(true); setSubmitError("");
+    try {
+      const result = await api<{ answers: Answer[] }>(`/api/attempts/${id}/submit`, { method: "POST", body: JSON.stringify({ answers: data.questions.map(q => ({ questionId: q.id, selected: answers.get(q.id)!.selected })) }) });
+      setNewAnswers(Object.fromEntries(result.answers.map(answer => [answer.questionId, answer])));
+      try { sessionStorage.removeItem(`miu_quiz_${uid}_${id}`); } catch {}
+      invalidateLoadCache(uid, ["/api/home", "/api/catalog?kind=lessons", `/api/lessons/${data.attempt.lessonId}`, "/api/history?", "/api/study?"]);
+      setSubmitted(true); setShowSummary(true);
+    } catch (cause) { setSubmitError(cause instanceof Error ? cause.message : "Không nộp được bài. Thử lại nhé."); }
+    finally { setSubmitBusy(false); }
+  }
+
   async function retry() {
     if (!data) return;
     setRetryBusy(true);
     setRetryError("");
     try {
       const result = await api<{ id: string }>(`/api/lessons/${data.attempt.lessonId}/attempts`, { method: "POST", body: JSON.stringify({ exerciseId: data.attempt.exerciseId }) });
+      invalidateLoadCache(uid, ["/api/home", "/api/catalog?kind=lessons", `/api/lessons/${data.attempt.lessonId}`]);
       router.push(`/learn/quiz/${result.id}`);
     } catch (cause) {
       setRetryError(cause instanceof Error ? cause.message : "Không làm lại được bài.");
@@ -89,7 +140,7 @@ export default function Quiz() {
   }
 
   if (loading) return <Loading/>;
-  if (error || !data) return <ErrorState message={error} retry={reload}/>;
+  if (error || !data) return <><ErrorState message={error} retry={reload}/>{error.includes("Đề đã thay đổi") && <p className="center-state"><Link href="/learn/grammar" className="button">Chọn bài để làm lượt mới</Link></p>}</>;
   const wrong = data.questions.flatMap((question, index) => {
     const answer = answers.get(question.id);
     return answer && !answer.correct ? [{ number: index + 1, id: question.id, answer }] : [];
@@ -143,6 +194,6 @@ export default function Quiz() {
         </section>;
       })}
     </div>
-    <div className="quiz-finish"><button className="button button-primary" disabled={!complete} onClick={() => { setShowSummary(true); if (showSummary) summaryRef.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }); }}>Xem kết quả tổng <ArrowRight size={17} aria-hidden="true"/></button>{!complete && <p>Trả lời đủ {total} câu để xem kết quả.</p>}</div>
+    <div className="quiz-finish"><button className="button button-primary" disabled={!complete || submitBusy} onClick={() => { if (data.attempt.gradingMode === "batch" && !submitted && data.attempt.status !== "complete") void submit(); else { setShowSummary(true); if (showSummary) summaryRef.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }); } }}>{data.attempt.gradingMode === "batch" && !submitted && data.attempt.status !== "complete" ? (submitBusy ? "Đang nộp..." : "Nộp bài") : "Xem kết quả tổng"} <ArrowRight size={17} aria-hidden="true"/></button>{!complete && <p>Trả lời đủ {total} câu để xem kết quả.</p>}{data.attempt.gradingMode === "legacy" && <p>Bài này lưu từng câu trả lời.</p>}{submitError && <p className="form-error" role="alert">{submitError} <button type="button" className="quiz-resync" onClick={reload}>Tải lại tiến độ</button></p>}</div>
   </div>;
 }

@@ -3,7 +3,7 @@ import { jsonError, requireCsrf } from "@/lib/api";
 import { db } from "@/lib/firebase-admin";
 import { CardRow, ImportKind, parseImport, QuestionRow, uniqueId } from "@/lib/csv-import";
 import { now } from "@/lib/models";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldPath, FieldValue } from "firebase-admin/firestore";
 import { revalidateTag } from "next/cache";
 
 export const runtime = "nodejs";
@@ -30,8 +30,10 @@ async function handle(request: Request, commit: boolean) {
     const markerRefs = parsed.rows.map(row => store.collection("uniqueKeys").doc(uniqueId(typedKind, lessonId ?? parentId, row.key)));
     const errors = [...parsed.errors];
     if (!commit) {
-      const markers = markerRefs.length ? await store.getAll(...markerRefs) : [];
-      markers.forEach((marker, index) => { if (marker.exists) errors.push(`Dòng ${index + 2}: nội dung đã có trong bài/chủ đề (có thể đang bị ẩn).`); });
+      const matches = await Promise.all(Array.from({ length: Math.ceil(markerRefs.length / 30) }, (_, index) =>
+        store.collection("uniqueKeys").where(FieldPath.documentId(), "in", markerRefs.slice(index * 30, index * 30 + 30).map(ref => ref.id)).get()));
+      const existing = new Set(matches.flatMap(snapshot => snapshot.docs.map(doc => doc.id)));
+      markerRefs.forEach((marker, index) => { if (existing.has(marker.id)) errors.push(`Dòng ${index + 2}: nội dung đã có trong bài/chủ đề (có thể đang bị ẩn).`); });
       return Response.json({ hash: parsed.hash, rows: parsed.rows, errors, count: parsed.rows.length });
     }
     if (errors.length) throw new ApiError(400, errors.join("\n"));

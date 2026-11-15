@@ -26,7 +26,13 @@ function MediaCheck({ image, audio }: { image?: string; audio: string }) {
 export default function AdminListening() {
   const setsPage = usePagination(), itemsPage = usePagination();
   const [selected, setSelected] = useState("");
-  const { data, error, loading, reload } = useLoad<Data>(`/api/admin/listening?sets=${setsPage.token}&selected=${selected}&items=${itemsPage.token}`);
+  const setsLoad = useLoad<Pick<Data,"sets"|"setsNextToken"|"isBot">>(`/api/admin/listening?section=sets&sets=${setsPage.token}`);
+  const currentId = selected || setsLoad.data?.sets[0]?.id || "";
+  const itemsLoad = useLoad<Pick<Data,"current"|"items"|"itemsNextToken">>(`/api/admin/listening?section=items&selected=${currentId}&items=${itemsPage.token}`);
+  const data = setsLoad.data && itemsLoad.data ? { ...setsLoad.data, ...itemsLoad.data, setsToken: setsPage.token } : null;
+  const error = setsLoad.error || itemsLoad.error;
+  const loading = setsLoad.loading || itemsLoad.loading;
+  const reload = async () => { await Promise.all([setsLoad.reload(), itemsLoad.reload()]); };
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<Kind>("dictation");
   const [file, setFile] = useState<File | null>(null);
@@ -39,7 +45,7 @@ export default function AdminListening() {
   const [failure, setFailure] = useState("");
   const current = data?.current ?? null;
   const items = data?.items ?? [];
-  const activeSetId = selected || (data?.setsToken === setsPage.token ? current?.id ?? "" : "");
+  const activeSetId = currentId;
   useEffect(() => { itemsPage.reset(); setFile(null); setPreview(null); setEditing(null); setFields({}); }, [selected]);
   async function run(task: () => Promise<void>, success: string) {
     setBusy(true); setFailure(""); setMessage("");

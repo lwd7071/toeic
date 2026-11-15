@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Check, RotateCcw, Volume2, X } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { useLoad } from "@/lib/use-load";
+import { ViewerUid, invalidateLoadCache } from "@/lib/use-load";
 import { EmptyState, ErrorState, Loading, PageTitle } from "@/components/ui";
 
 type Card = { id: string; english: string; vietnamese: string; status: "new"|"review"|"remembered" };
@@ -13,7 +14,8 @@ type Data = { topic: { id: string; title: string }; cards: Card[] };
 
 export default function Flashcards() {
   const id = useParams<{id:string}>().id;
-  const { data, error, loading, reload, setData } = useLoad<Data>(`/api/topics/${id}/cards`);
+  const uid = useContext(ViewerUid);
+  const { data, error, loading, reload, setData } = useLoad<Data>(`/api/topics/${id}/cards`, true);
   const [filter, setFilter] = useState<"all"|"review">("all");
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -28,6 +30,7 @@ export default function Flashcards() {
     setSaving(true); setSaveError("");
     try {
       await api(`/api/cards/${current.id}/progress`, { method:"PATCH", body:JSON.stringify({status}) });
+      invalidateLoadCache(uid, ["/api/home", "/api/catalog?kind=topics", "/api/progress-summary", "/api/study?"]);
       setData({ ...data, cards:data.cards.map(c => c.id === current.id ? {...c,status} : c) });
       setFlipped(false); setIndex(filter === "review" ? index : index+1);
     } catch (cause) { setSaveError(cause instanceof Error ? cause.message : "Không lưu được thẻ."); }

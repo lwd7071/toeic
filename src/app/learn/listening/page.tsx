@@ -9,7 +9,7 @@ import { Pagination, usePagination } from "@/components/pagination";
 type Data = { sets: { id: string; title: string; kind: "dictation" | "picture"; total: number }[]; attempts: { id: string; setId: string; correct: number; total: number }[] };
 export default function Listening() {
   const pagination = usePagination();
-  const { data, error, loading, reload } = useLoad<{items:(Data["sets"][number] & {lastAttempt:{correct:number;total:number}|null})[];nextPageToken:string|null}>(`/api/catalog?kind=listening&pageToken=${pagination.token}`);
+  const { data, error, loading, reload } = useLoad<{items:(Data["sets"][number] & {lastAttempt:{correct:number;total:number}|null})[];nextPageToken:string|null}>(`/api/catalog?kind=listening&pageToken=${pagination.token}`, true);
   if (loading) return <Loading/>;
   if (error || !data) return <ErrorState message={error} retry={reload}/>;
   return <><PageTitle title="Góc listening" description="Nghe chép câu ngắn và luyện mô tả tranh cùng Miu."/>

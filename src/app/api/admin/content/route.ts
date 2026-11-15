@@ -14,6 +14,32 @@ export async function GET(request: Request) {
     const params = new URL(request.url).searchParams;
     const tab = params.get("tab") === "questions" ? "questions" : "cards";
     const token = (key: string) => { const value = params.get(key) ?? ""; if (value && !/^[\w-]{1,200}$/.test(value)) throw new ApiError(400, "Trang không hợp lệ."); return value; };
+    const section = params.get("section");
+    if (section) {
+      const rows = (docs: FirebaseFirestore.QueryDocumentSnapshot[]) => docs.map(d => ({ id: d.id, ...d.data() }));
+      if (section === "parents") {
+        const page = await firestorePage(store.collection(tab === "cards" ? "vocabTopics" : "grammarLessons"), token("parents"));
+        return Response.json({ parents: rows(page.docs), parentNextToken: page.nextPageToken, isBot: user.isBot });
+      }
+      const id = token("selected"), exerciseId = token("exercise");
+      if (section === "exercises") {
+        if (!id) return Response.json({ current: null, exercises: [], exerciseNextToken: null, currentExercise: null });
+        const parent = await store.collection(tab === "cards" ? "vocabTopics" : "grammarLessons").doc(id).get();
+        const current = parent.exists ? { id: parent.id, ...parent.data() } : null;
+        const page = tab === "questions" && current ? await firestorePage(store.collection("grammarExercises").where("lessonId", "==", id), token("exercises")) : null;
+        const chosen = exerciseId && page ? page.docs.find(d => d.id === exerciseId) ?? await store.collection("grammarExercises").doc(exerciseId).get() : page?.docs[0];
+        const currentExercise = chosen?.exists && chosen.data()?.lessonId === id ? { id: chosen.id, ...chosen.data() } : null;
+        return Response.json({ current, exercises: rows(page?.docs ?? []), exerciseNextToken: page?.nextPageToken ?? null, currentExercise });
+      }
+      if (section === "items") {
+        const owner = tab === "cards" ? id : exerciseId;
+        if (!owner) return Response.json({ children: [], childNextToken: null });
+        const query = tab === "cards" ? store.collection("vocabCards").where("topicId", "==", owner) : store.collection("grammarQuestions").where("exerciseId", "==", owner);
+        const page = await firestorePage(query, token("children"));
+        return Response.json({ children: rows(page.docs), childNextToken: page.nextPageToken });
+      }
+      throw new ApiError(400, "Phần danh sách không hợp lệ.");
+    }
     const id = token("selected"), exerciseId = token("exercise");
     const parentCollection = store.collection(tab === "cards" ? "vocabTopics" : "grammarLessons");
     const parentPage = await firestorePage(parentCollection, token("parents"));

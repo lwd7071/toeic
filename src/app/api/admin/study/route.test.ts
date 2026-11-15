@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/errors";
 
-const { requireAdmin, listUsers, learnedDays } = vi.hoisted(() => ({ requireAdmin: vi.fn(), listUsers: vi.fn(), learnedDays: vi.fn() }));
+const { requireAdmin, listUsers, studyDays } = vi.hoisted(() => ({ requireAdmin: vi.fn(), listUsers: vi.fn(), studyDays: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ requireAdmin, ApiError }));
 vi.mock("@/lib/firebase-admin", () => ({ adminAuth: () => ({ listUsers }) }));
-vi.mock("@/lib/study-store", () => ({ learnedDays }));
+vi.mock("@/lib/study-store", () => ({ studyDays }));
 
 import { GET } from "./route";
 
@@ -13,7 +13,7 @@ describe("admin study calendar", () => {
     vi.clearAllMocks();
     requireAdmin.mockResolvedValue({ uid: "admin" });
     listUsers.mockResolvedValue({ users: [{ uid: "learner-1", email: "learner@example.com", displayName: "Learner", metadata: { creationTime: "2026-11-01T00:00:00Z" } }], pageToken: undefined });
-    learnedDays.mockResolvedValue([]);
+    studyDays.mockResolvedValue({ days: [], streak: 0, studiedToday: false });
   });
 
   it("shows registered learners even with no completed study day", async () => {

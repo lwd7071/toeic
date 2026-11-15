@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { BookOpenText, ChartNoAxesColumn, Headphones, House, Layers3, LogOut, Settings2 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { ViewerUid, clearLoadCache } from "@/lib/use-load";
 
 const links = [
   { href: "/learn", label: "Trang đầu", icon: House },
@@ -13,14 +14,14 @@ const links = [
   { href: "/learn/progress", label: "Tiến độ", icon: ChartNoAxesColumn },
 ];
 
-export function AppShell({ children, isAdmin, isBot = false, email }: { children: React.ReactNode; isAdmin: boolean; isBot?: boolean; email: string }) {
+export function AppShell({ children, isAdmin, isBot = false, email, uid }: { children: React.ReactNode; isAdmin: boolean; isBot?: boolean; email: string; uid: string }) {
   const path = usePathname();
   const router = useRouter();
   async function logout() {
     try { await api("/api/auth/session", { method: "DELETE" }); }
-    finally { router.push(isBot ? "/bot/login" : "/"); router.refresh(); }
+    finally { clearLoadCache(uid); router.push(isBot ? "/bot/login" : "/"); router.refresh(); }
   }
-  return <div className="app-wrap">
+  return <ViewerUid.Provider value={uid}><div className="app-wrap">
     <header className="site-header">
       <Link className="brand" href={isBot ? "/admin" : "/learn"}><span className="brand-mark">m</span><span>Miu<span className="brand-accent"> TOEIC</span></span></Link>
       <nav className="desktop-nav" aria-label="Điều hướng chính">
@@ -35,5 +36,5 @@ export function AppShell({ children, isAdmin, isBot = false, email }: { children
     {!isBot && <nav className="mobile-nav" aria-label="Điều hướng chính">
       {links.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={path === href || (href !== "/learn" && path.startsWith(href)) ? "mobile-link active" : "mobile-link"}><Icon size={21}/><span>{label}</span></Link>)}
     </nav>}
-  </div>;
+  </div></ViewerUid.Provider>;
 }

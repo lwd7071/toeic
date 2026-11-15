@@ -4,6 +4,7 @@ import { db } from "@/lib/firebase-admin";
 import { PAGE_SIZE } from "@/lib/pagination";
 import { Attempt, Exercise, Lesson } from "@/lib/models";
 import { ListeningAttempt } from "@/lib/listening";
+import { cachedLesson, cachedExercise } from "@/lib/cached-content";
 
 type Cursor = [string, string] | null;
 function cursorToken(request: Request): { g: Cursor; l: Cursor } {
@@ -26,8 +27,8 @@ export async function GET(request: Request) {
     const [grammarSnap, listeningSnap, grammarCount, listeningCount] = await Promise.all([
       (cursor.g ? grammar.startAfter(...cursor.g) : grammar).limit(PAGE_SIZE + 1).get(),
       (cursor.l ? listening.startAfter(...cursor.l) : listening).limit(PAGE_SIZE + 1).get(),
-      store.collection("quizAttempts").where("uid", "==", user.uid).where("status", "==", "complete").count().get(),
-      store.collection("listeningAttempts").where("uid", "==", user.uid).count().get(),
+      cursor.g || cursor.l ? null : store.collection("quizAttempts").where("uid", "==", user.uid).where("status", "==", "complete").count().get(),
+      cursor.g || cursor.l ? null : store.collection("listeningAttempts").where("uid", "==", user.uid).count().get(),
     ]);
     const ordered = [
       ...grammarSnap.docs.map(d => ({ id: d.id, kind: "grammar" as const, at: (d.data() as Attempt).startedAt, data: d.data() as Attempt })),
@@ -37,11 +38,11 @@ export async function GET(request: Request) {
     const lessonIds = [...new Set(page.filter(a => a.kind === "grammar").map(a => (a.data as Attempt).lessonId))];
     const exerciseIds = [...new Set(page.filter(a => a.kind === "grammar").map(a => { const attempt = a.data as Attempt; return attempt.exerciseId ?? `default_${attempt.lessonId}`; }))];
     const [lessonDocs, exerciseDocs] = await Promise.all([
-      lessonIds.length ? store.getAll(...lessonIds.map(id => store.collection("grammarLessons").doc(id))) : [],
-      exerciseIds.length ? store.getAll(...exerciseIds.map(id => store.collection("grammarExercises").doc(id))) : [],
+      Promise.all(lessonIds.map(id => cachedLesson(id))),
+      Promise.all(exerciseIds.map(id => cachedExercise(id))),
     ]);
-    const lessons = new Map(lessonDocs.map(d => [d.id, (d.data() as Lesson | undefined)?.title]));
-    const exercises = new Map(exerciseDocs.map(d => [d.id, (d.data() as Exercise | undefined)?.title]));
+    const lessons = new Map(lessonIds.map((id, index) => [id, (lessonDocs[index] as Lesson | null)?.title]));
+    const exercises = new Map(exerciseIds.map((id, index) => [id, (exerciseDocs[index] as Exercise | null)?.title]));
     const items = page.map(a => a.kind === "grammar" ? (() => {
       const attempt = a.data as Attempt;
       return { id: a.id, kind: a.kind, title: `${lessons.get(attempt.lessonId) ?? "Bài đã ẩn"} · ${exercises.get(attempt.exerciseId ?? `default_${attempt.lessonId}`) ?? "Bài tập 1"}`, correct: attempt.correctCount, total: attempt.questionIds.length, answered: attempt.answeredCount, status: attempt.status, at: a.at };
@@ -51,6 +52,6 @@ export async function GET(request: Request) {
     })());
     const next = { ...cursor };
     for (const a of page) next[a.kind === "grammar" ? "g" : "l"] = [a.at, a.id];
-    return Response.json({ items, nextPageToken: ordered.length > PAGE_SIZE ? Buffer.from(JSON.stringify(next)).toString("base64url") : null, grammarCompleted: grammarCount.data().count, listeningCompleted: listeningCount.data().count });
+    return Response.json({ items, nextPageToken: ordered.length > PAGE_SIZE ? Buffer.from(JSON.stringify(next)).toString("base64url") : null, grammarCompleted: grammarCount?.data().count ?? null, listeningCompleted: listeningCount?.data().count ?? null });
   } catch (error) { return jsonError(error); }
 }

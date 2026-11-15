@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { useLoad } from "@/lib/use-load";
+import { ViewerUid, invalidateLoadCache, primeLoadCache } from "@/lib/use-load";
 import { ErrorState, Loading, PageTitle } from "@/components/ui";
 
 type Item = { id: string; audioUrl: string; audioViewUrl: string; imageUrl?: string; imageViewUrl?: string };
@@ -23,8 +24,9 @@ function Media({ item }: { item: Item }) {
 
 export default function ListeningExercise() {
   const id = useParams<{ id: string }>().id;
+  const uid = useContext(ViewerUid);
   const router = useRouter();
-  const { data, error, loading, reload } = useLoad<Data>(`/api/listening/${id}`);
+  const { data, error, loading, reload } = useLoad<Data>(`/api/listening/${id}`, true);
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [result, setResult] = useState<Result | null>(null);
   const [index, setIndex] = useState(0);
@@ -45,6 +47,8 @@ export default function ListeningExercise() {
     try {
       const saved = await api<Result>(`/api/listening/${id}/submit`, { method: "POST", body: JSON.stringify({ responses: data.items.map(item => ({ id: item.id, selected: responses[item.id] ?? "" })) }) });
       setResult(saved);
+      primeLoadCache(uid, `/api/listening/attempts/${saved.id}`, saved);
+      invalidateLoadCache(uid, ["/api/home", "/api/catalog?kind=listening", "/api/history?", "/api/study?"]);
       if (data.set.kind === "dictation") router.push(`/learn/listening/result/${saved.id}`);
       else window.scrollTo({ top: 0, behavior: "smooth" });
     }

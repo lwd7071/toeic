@@ -5,6 +5,7 @@ const { db, requested } = vi.hoisted(() => ({ db: vi.fn(), requested: [] as stri
 vi.mock("@/lib/auth", () => ({ requireViewer: async () => ({ uid: "student" }), ApiError }));
 vi.mock("@/lib/api", () => ({ jsonError: (error: ApiError) => Response.json({ error: error.message }, { status: error.status }) }));
 vi.mock("@/lib/firebase-admin", () => ({ db }));
+vi.mock("@/lib/cached-content", () => ({ cachedExercise: async () => ({ title: "Practice" }), exerciseQuestions: vi.fn() }));
 
 import { GET } from "./route";
 

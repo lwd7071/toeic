@@ -7,6 +7,11 @@ const { requireViewer, requireCsrf, db, documents, questions, addAttempt } = vi.
 vi.mock("@/lib/auth", () => ({ requireViewer, ApiError }));
 vi.mock("@/lib/api", () => ({ requireCsrf, jsonError: (error: ApiError) => Response.json({ error: error.message }, { status: error.status }) }));
 vi.mock("@/lib/firebase-admin", () => ({ db }));
+vi.mock("@/lib/cached-content", () => ({
+  cachedLesson: async (id: string) => ({ id, ...documents.get(`grammarLessons/${id}`) as object }),
+  cachedExercise: async (id: string) => ({ id, ...documents.get(`grammarExercises/${id}`) as object }),
+  exerciseQuestions: async (id: string) => ({ questions: questions(id).map((q: { id: string; data: () => object }) => ({ id: q.id, ...q.data() })), version: "v1" }),
+}));
 
 import { POST } from "./route";
 

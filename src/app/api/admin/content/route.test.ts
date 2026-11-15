@@ -40,6 +40,18 @@ describe("admin content pagination", () => {
     expect(queried).toEqual(["vocabTopics", "vocabCards"]);
   });
 
+  it("loads only the requested admin section", async () => {
+    const parents = await GET(new Request("http://localhost/api/admin/content?section=parents&tab=cards"));
+    expect((await parents.json()).parents).toHaveLength(1);
+    expect(queried).toEqual(["vocabTopics"]);
+    queried.length = 0;
+    firestorePage.mockClear();
+    const items = await GET(new Request("http://localhost/api/admin/content?section=items&tab=cards&selected=topic"));
+    expect((await items.json()).children).toHaveLength(1);
+    expect(queried).toEqual(["vocabCards"]);
+    expect(firestorePage).toHaveBeenCalledTimes(1);
+  });
+
   it("initializes counters and invalidates shared content after creation", async () => {
     const response = await POST(new Request("http://localhost/api/admin/content", { method: "POST", body: JSON.stringify({ kind: "topic", title: " CÔNG SỞ " }) }));
     expect(response.status).toBe(200);

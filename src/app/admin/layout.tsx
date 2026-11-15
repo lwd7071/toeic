@@ -7,5 +7,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const user = await viewer();
   if (!user) redirect("/");
   if (!user.isAdmin && !user.isBot) redirect("/learn");
-  return <AppShell isAdmin={user.isAdmin} isBot={user.isBot} email={user.email}>{children}</AppShell>;
+  return <AppShell isAdmin={user.isAdmin} isBot={user.isBot} email={user.email} uid={user.uid}>{children}</AppShell>;
 }

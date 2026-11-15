@@ -13,7 +13,7 @@ export default function Vocabulary() {
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   useEffect(() => { const timer = setTimeout(() => { pagination.reset(); setQuery(search); }, 250); return () => clearTimeout(timer); }, [search]);
-  const { data, error, loading, reload } = useLoad<{items:HomeData["topics"];nextPageToken:string|null}>(`/api/catalog?kind=topics&search=${encodeURIComponent(query)}&pageToken=${pagination.token}`);
+  const { data, error, loading, reload } = useLoad<{items:HomeData["topics"];nextPageToken:string|null}>(`/api/catalog?kind=topics&search=${encodeURIComponent(query)}&pageToken=${pagination.token}`, true);
   if (loading) return <Loading/>;
   if (error || !data) return <ErrorState message={error} retry={reload}/>;
   const topics = data.items;

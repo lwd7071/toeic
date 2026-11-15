@@ -53,4 +53,10 @@ describe("answer grammar questions in any order", () => {
     expect(responses.map(response => response.status)).toEqual([200, 200]);
     expect(documents.get("quizAttempts/attempt")).toMatchObject({ answeredCount: 2, correctCount: 2, status: "complete" });
   });
+
+  it("does not allow single-answer writes on a batch attempt", async () => {
+    documents.set("quizAttempts/attempt", { ...documents.get("quizAttempts/attempt"), gradingMode: "batch" });
+    expect((await answer("q1", "A")).status).toBe(400);
+    expect(documents.has("quizAnswers/attempt_q1")).toBe(false);
+  });
 });

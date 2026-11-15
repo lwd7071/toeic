@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { api } from "@/lib/api-client";
 import { useLoad } from "@/lib/use-load";
+import { ViewerUid, invalidateLoadCache } from "@/lib/use-load";
 import { TheoryMarkdown } from "@/components/theory-markdown";
 import { EmptyState, ErrorState, Loading, PageTitle } from "@/components/ui";
 import { Pagination, usePagination } from "@/components/pagination";
@@ -13,14 +14,15 @@ import { Pagination, usePagination } from "@/components/pagination";
 type Data = { lesson: { id:string; title:string; theory:string }; questionCount:number; nextPageToken:string|null; exercises:{id:string;title:string;questionCount:number;lastAttempt:{status:string;correct:number;answered:number;total:number}|null}[] };
 export default function Lesson() {
   const id = useParams<{id:string}>().id;
+  const uid = useContext(ViewerUid);
   const router = useRouter();
   const pagination = usePagination();
-  const { data, error, loading, reload } = useLoad<Data>(`/api/lessons/${id}?pageToken=${pagination.token}`);
+  const { data, error, loading, reload } = useLoad<Data>(`/api/lessons/${id}?pageToken=${pagination.token}`, true);
   const [busy,setBusy] = useState("");
   const [startError,setStartError] = useState("");
   async function start(exerciseId:string) {
     setBusy(exerciseId);setStartError("");
-    try { const {id:attemptId}=await api<{id:string}>(`/api/lessons/${id}/attempts`,{method:"POST",body:JSON.stringify({exerciseId})});router.push(`/learn/quiz/${attemptId}`); }
+    try { const {id:attemptId}=await api<{id:string}>(`/api/lessons/${id}/attempts`,{method:"POST",body:JSON.stringify({exerciseId})});invalidateLoadCache(uid,["/api/home",`/api/lessons/${id}`,"/api/catalog?kind=lessons"]);router.push(`/learn/quiz/${attemptId}`); }
     catch(cause){setStartError(cause instanceof Error?cause.message:"Không bắt đầu được bài.");setBusy("")}
   }
   if(loading)return <Loading/>;

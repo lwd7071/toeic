@@ -22,7 +22,15 @@ export default function Admin() {
   const [tab,setTab]=useState<"cards"|"questions">("cards");
   const [selected,setSelected]=useState("");
   const [selectedExercise,setSelectedExercise]=useState("");
-  const {data,error,loading,reload}=useLoad<Data>(`/api/admin/content?tab=${tab}&parents=${parentsPage.token}&selected=${selected}&exercises=${exercisesPage.token}&exercise=${selectedExercise}&children=${childrenPage.token}`);
+  const parentsLoad=useLoad<Pick<Data,"parents"|"parentNextToken"|"isBot">>(`/api/admin/content?section=parents&tab=${tab}&parents=${parentsPage.token}`);
+  const parentId=selected||parentsLoad.data?.parents[0]?.id||"";
+  const detailLoad=useLoad<Pick<Data,"current"|"exercises"|"exerciseNextToken"|"currentExercise">>(`/api/admin/content?section=exercises&tab=${tab}&selected=${parentId}&exercises=${exercisesPage.token}&exercise=${selectedExercise}`);
+  const exerciseId=selectedExercise||detailLoad.data?.currentExercise?.id||"";
+  const itemsLoad=useLoad<Pick<Data,"children"|"childNextToken">>(`/api/admin/content?section=items&tab=${tab}&selected=${parentId}&exercise=${exerciseId}&children=${childrenPage.token}`);
+  const data=parentsLoad.data&&detailLoad.data&&itemsLoad.data?{...parentsLoad.data,...detailLoad.data,...itemsLoad.data,tab,parentsToken:parentsPage.token,selected}:null;
+  const error=parentsLoad.error||detailLoad.error||itemsLoad.error;
+  const loading=parentsLoad.loading||detailLoad.loading||itemsLoad.loading;
+  const reload=async()=>{await Promise.all([parentsLoad.reload(),detailLoad.reload(),itemsLoad.reload()])};
   const [exerciseTitle,setExerciseTitle]=useState("");
   const [creatingExercise,setCreatingExercise]=useState(false);
   const [creating,setCreating]=useState(false);
@@ -40,8 +48,8 @@ export default function Admin() {
   const exercises=data?.exercises??[];
   const currentExercise=data?.currentExercise??null;
   const children=data?.children??[];
-  const activeParentId=selected||(data?.tab===tab&&data.parentsToken===parentsPage.token?current?.id??"":"");
-  const activeExerciseId=selectedExercise||(data?.tab===tab&&data.selected===selected?currentExercise?.id??"":"");
+  const activeParentId=parentId;
+  const activeExerciseId=exerciseId;
   useEffect(()=>{exercisesPage.reset();childrenPage.reset();setSelectedExercise("");setTitle(current?.title??"");setTheory(current&&"theory" in current&&typeof current.theory==="string"?current.theory:"");setFile(null);setPreview(null);setEditing(null)},[selected,tab,current?.id]);
   useEffect(()=>{childrenPage.reset();setExerciseTitle(currentExercise?.title??"");setFile(null);setPreview(null);setEditing(null)},[selectedExercise,currentExercise?.id]);
   function clearMessage(){setFail("");setNotice("")}

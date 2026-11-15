@@ -8,7 +8,7 @@ import { HomeData } from "@/lib/client-types";
 import { useLoad } from "@/lib/use-load";
 
 export default function LearnHome() {
-  const { data, error, loading, reload } = useLoad<HomeData>("/api/home");
+  const { data, error, loading, reload } = useLoad<HomeData>("/api/home", true);
   if (loading) return <Loading/>;
   if (error || !data) return <ErrorState message={error} retry={reload}/>;
   const resume = data.attempts.find(a => a.status === "in_progress");

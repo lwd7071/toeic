@@ -21,6 +21,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const attemptDoc = await transaction.get(attemptRef);
       const attempt = attemptDoc.data() as Attempt | undefined;
       if (!attempt || attempt.uid !== user.uid) throw new ApiError(404, "Không tìm thấy lượt làm bài.");
+      if (attempt.gradingMode === "batch") throw new ApiError(400, "Lượt này cần nộp cả bài.");
       if (!attempt.questionIds.includes(questionId)) throw new ApiError(409, "Câu hỏi không thuộc lượt làm bài này.");
       const existing = await transaction.get(answerRef);
       if (existing.exists) {
