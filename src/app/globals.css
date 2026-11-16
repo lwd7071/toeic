@@ -113,6 +113,7 @@ p{color:var(--muted)}
 .flashcard .hint{position:absolute;bottom:22px;color:#817589;font-size:.85rem}
 .card-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:25px}
 .filter-row{display:flex;align-items:center;justify-content:center;gap:9px;margin:25px 0}
+.listening-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));max-width:600px;margin:0 0 22px}
 .filter-row button,.tab-row button{border:0;background:#fff;border-radius:999px;padding:8px 16px;color:var(--muted);font-weight:700}
 .filter-row button.active,.tab-row button.active{background:var(--ink);color:#fff}
 .theory-layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:30px;align-items:start}

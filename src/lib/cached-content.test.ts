@@ -33,4 +33,19 @@ describe("shared content cache", () => {
     expect(cachedLessons).toBeTypeOf("function");
     expect(cachedListening).toBeTypeOf("function");
   });
+
+  it("filters listening sets before pagination and rejects a cursor from another type", async () => {
+    await cachedListening(20, "", "picture");
+    expect(methods).toContainEqual(["where", "kind", "==", "picture"]);
+    expect(methods).toContainEqual(["limit", 21]);
+    expect(methods.findIndex(method => method[0] === "where" && method[1] === "kind")).toBeLessThan(methods.findIndex(method => method[0] === "limit"));
+
+    const collection = {
+      where(...args: unknown[]) { methods.push(["where", ...args]); return this; },
+      orderBy(...args: unknown[]) { methods.push(["orderBy", ...args]); return this; },
+      doc: () => ({ get: async () => ({ exists: true, data: () => ({ archivedAt: null, kind: "dictation" }) }) }),
+    };
+    db.mockReturnValue({ collection: () => collection });
+    await expect(cachedListening(20, "other-set", "picture")).rejects.toThrow("Trang không hợp lệ.");
+  });
 });

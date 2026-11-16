@@ -17,6 +17,14 @@
       ]
     },
     {
+      "collectionGroup": "listeningSets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "archivedAt", "order": "ASCENDING" },
+        { "fieldPath": "kind", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "vocabTopics",
       "queryScope": "COLLECTION",
       "fields": [

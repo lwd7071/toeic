@@ -5,17 +5,19 @@ import { searchTitle } from "./content-counts";
 import { PAGE_SIZE } from "./pagination";
 import { createHash } from "node:crypto";
 import { Card, Exercise, Lesson, Question, Topic } from "./models";
-import { ListeningItem, ListeningSet } from "./listening";
+import { ListeningItem, ListeningKind, ListeningSet } from "./listening";
 
 const TTL = 900;
 
-async function page(collectionName: string, limit: number, token: string, search = "") {
+async function page(collectionName: string, limit: number, token: string, search = "", kind?: ListeningKind) {
   const collection = db().collection(collectionName);
-  const query = search
-    ? collection.where("archivedAt", "==", null).orderBy("searchTitle").orderBy("__name__").startAt(search).endAt(search + "\uf8ff")
-    : collection.where("archivedAt", "==", null).orderBy("__name__");
+  let query = collection.where("archivedAt", "==", null);
+  if (kind) query = query.where("kind", "==", kind);
+  query = search
+    ? query.orderBy("searchTitle").orderBy("__name__").startAt(search).endAt(search + "\uf8ff")
+    : query.orderBy("__name__");
   const cursor = token ? await collection.doc(token).get() : null;
-  if (cursor && (!cursor.exists || cursor.data()?.archivedAt || (search && !String(cursor.data()?.searchTitle).startsWith(search)))) throw new ApiError(400, "Trang không hợp lệ.");
+  if (cursor && (!cursor.exists || cursor.data()?.archivedAt || (kind && cursor.data()?.kind !== kind) || (search && !String(cursor.data()?.searchTitle).startsWith(search)))) throw new ApiError(400, "Trang không hợp lệ.");
   const snapshot = await (cursor ? query.startAfter(cursor) : query).limit(limit === 3 ? 3 : limit + 1).get();
   const docs = snapshot.docs.slice(0, limit);
   return { items: docs.map(d => ({ id: d.id, ...d.data() })), nextPageToken: snapshot.size > limit ? docs.at(-1)!.id : null };
@@ -30,7 +32,7 @@ export const cachedLessons = unstable_cache(
   ["content-v3", "lessons"], { tags: ["content:lessons"], revalidate: TTL },
 );
 export const cachedListening = unstable_cache(
-  async (limit: number, token: string) => page("listeningSets", limit, token),
+  async (limit: number, token: string, kind?: ListeningKind) => page("listeningSets", limit, token, "", kind),
   ["content-v3", "listening"], { tags: ["content:listening"], revalidate: TTL },
 );
 

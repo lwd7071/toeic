@@ -33,7 +33,9 @@ export async function GET(request: Request) {
       return Response.json({ items, nextPageToken: page.nextPageToken }, { headers: { "Cache-Control": "private, no-store" } });
     }
     if (kind === "listening") {
-      const page = await cachedListening(PAGE_SIZE, token);
+      const listeningKind = params.get("listeningKind");
+      if (listeningKind !== null && listeningKind !== "dictation" && listeningKind !== "picture") throw new ApiError(400, "Dạng listening không hợp lệ.");
+      const page = await cachedListening(PAGE_SIZE, token, listeningKind ?? undefined);
       const items = await Promise.all(page.items.map(async d => {
         const set = d as unknown as ListeningSet;
         const latest = await store.collection("listeningAttempts").where("uid", "==", user.uid).where("setId", "==", d.id).orderBy("completedAt", "desc").limit(1).get();
