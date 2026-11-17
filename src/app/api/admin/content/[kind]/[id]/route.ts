@@ -84,8 +84,19 @@ export async function PATCH(request: Request, context: { params: Promise<{ kind:
       const title = textField(body.title, "Tên bài", 120);
       const theory = typeof body.theory === "string" ? body.theory.trim() : "";
       if (theory.length > 20000) throw new ApiError(400, "Lý thuyết quá dài.");
-      await ref.update({ title, theory });
+      if (doc.data()?.kind === "practice") {
+        if (theory) throw new ApiError(400, "Bài tập thuần không có lý thuyết.");
+        const exerciseRef = store.collection("grammarExercises").doc(`default_${id}`);
+        await store.runTransaction(async tx => {
+          const exercise = await tx.get(exerciseRef);
+          if (!exercise.exists) throw new ApiError(409, "Bài tập mặc định không tồn tại.");
+          tx.update(ref, { title });
+          tx.update(exerciseRef, { title });
+        });
+      } else await ref.update({ title, theory });
     } else if (kind === "exercise") {
+      const lesson = await store.collection("grammarLessons").doc(doc.data()?.lessonId).get();
+      if (lesson.data()?.kind === "practice") throw new ApiError(400, "Hãy đổi tên ở bài tập thuần.");
       await ref.update({ title: textField(body.title, "Tên bài tập", 120) });
     } else if (kind === "card") {
       const card = doc.data() as Card;

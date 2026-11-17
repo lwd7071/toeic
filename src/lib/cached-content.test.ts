@@ -49,6 +49,12 @@ describe("shared content cache", () => {
     await expect(cachedListening(20, "other-set", "picture")).rejects.toThrow("Trang không hợp lệ.");
   });
 
+  it("filters grammar lessons by tab before pagination", async () => {
+    await cachedLessons(20, "", "practice");
+    expect(methods).toContainEqual(["where", "kind", "==", "practice"]);
+    expect(methods.findIndex(method => method[0] === "where" && method[1] === "kind")).toBeLessThan(methods.findIndex(method => method[0] === "limit"));
+  });
+
   it("loads a whole vocabulary deck with one document read", async () => {
     const get = vi.fn(async () => ({ data: () => ({ title: "Topic", archivedAt: null, cards: [{ id: "card", english: "hello" }] }) }));
     db.mockReturnValue({ collection: (name: string) => {

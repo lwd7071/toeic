@@ -23,12 +23,14 @@ export async function GET(request: Request) {
       return Response.json({ items, nextPageToken: page.nextPageToken }, { headers: { "Cache-Control": "private, no-store" } });
     }
     if (kind === "lessons") {
-      const page = await cachedLessons(PAGE_SIZE, token);
+      const grammarKind = params.get("grammarKind") ?? "theory";
+      if (grammarKind !== "theory" && grammarKind !== "practice") throw new ApiError(400, "Loại bài ngữ pháp không hợp lệ.");
+      const page = await cachedLessons(PAGE_SIZE, token, grammarKind);
       const items = await Promise.all(page.items.map(async d => {
         const lesson = d as unknown as Lesson;
         const latest = await store.collection("quizAttempts").where("uid", "==", user.uid).where("lessonId", "==", d.id).orderBy("startedAt", "desc").limit(1).get();
         const attempt = latest.docs[0]?.data() as Attempt | undefined;
-        return { id: d.id, title: lesson.title, total: lesson.activeCount ?? 0, lastAttempt: attempt ? { id: latest.docs[0].id, status: attempt.status, correct: attempt.correctCount, answered: attempt.answeredCount, total: attempt.questionIds.length } : null };
+        return { id: d.id, title: lesson.title, kind: lesson.kind, total: lesson.activeCount ?? 0, lastAttempt: attempt ? { id: latest.docs[0].id, status: attempt.status, correct: attempt.correctCount, answered: attempt.answeredCount, total: attempt.questionIds.length } : null };
       }));
       return Response.json({ items, nextPageToken: page.nextPageToken }, { headers: { "Cache-Control": "private, no-store" } });
     }

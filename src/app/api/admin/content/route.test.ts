@@ -59,4 +59,11 @@ describe("admin content pagination", () => {
     expect(creates).toContainEqual({ path: "vocabDecks/new-topic", value: { title: "CÔNG SỞ", archivedAt: null, cards: [] } });
     expect(revalidateTag).toHaveBeenCalledWith("content:topics");
   });
+
+  it("creates a standalone practice lesson with one named exercise", async () => {
+    const response = await POST(new Request("http://localhost/api/admin/content", { method: "POST", body: JSON.stringify({ kind: "lesson", lessonKind: "practice", title: "Luyện thì" }) }));
+    expect(response.status).toBe(200);
+    expect(creates).toContainEqual({ path: "grammarLessons/new-topic", value: expect.objectContaining({ kind: "practice", title: "Luyện thì", theory: "" }) });
+    expect(creates).toContainEqual({ path: "grammarExercises/default_new-topic", value: expect.objectContaining({ title: "Luyện thì" }) });
+  });
 });

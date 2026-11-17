@@ -56,6 +56,10 @@ Listening: admin tải ảnh và MP3 lên Google Drive, bật quyền **Bất k�
 
 ## Triển khai Vercel
 
+### Tách bài ngữ pháp thành Lý thuyết + bài tập và Bài tập
+
+Trước khi đưa giao diện hai tab lên production, triển khai index `grammarLessons(archivedAt, kind)` bằng `firebase deploy --only firestore:indexes --project toeicdeptrai` và đợi trạng thái **Enabled**. Trong môi trường có `NEXT_PUBLIC_FIREBASE_PROJECT_ID` và service account hoặc ADC, chạy `node scripts/migrate-grammar-kinds.mjs check`, sau đó `migrate`, rồi `check` lần nữa. Script sao lưu các bài ngữ pháp cũ vào `.migration-backups/` trước khi gán loại `theory`; chạy lại không đổi bài đã được gán loại. Chỉ triển khai ứng dụng khi index sẵn sàng và lần `check` cuối báo 0 bài cần chuyển.
+
 ### Chuyển sang bộ đếm và truy vấn có giới hạn
 
 Phiên bản này cần index và bộ đếm trước khi đưa API mới lên production. Sau khi quota Firestore đặt lại, tạm dừng nhập/sửa/ẩn nội dung trong lúc chuyển dữ liệu. Nếu dữ liệu cũ chưa có bài tập ngữ pháp, chạy `node scripts/migrate-grammar-exercises.mjs` trước bước đối chiếu bộ đếm:

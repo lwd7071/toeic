@@ -14,7 +14,7 @@ type Question = { id: string; question: string; A: string; B: string; C: string;
 type Snapshot = Omit<Question, "id"> & { correctAnswer: Choice; explanation: string };
 type Answer = { questionId: string; selected: Choice; correct: boolean; snapshot: Snapshot };
 type Data = {
-  attempt: { id: string; lessonId: string; exerciseId: string; exerciseTitle: string; status: "in_progress" | "complete"; answeredCount: number; correctCount: number; total: number; gradingMode: "batch" | "legacy" };
+  attempt: { id: string; lessonId: string; lessonKind: "theory" | "practice"; exerciseId: string; exerciseTitle: string; status: "in_progress" | "complete"; answeredCount: number; correctCount: number; total: number; gradingMode: "batch" | "legacy" };
   questions: Question[];
   answers: Answer[];
 };
@@ -147,7 +147,7 @@ export default function Quiz() {
   });
 
   return <div className="quiz-wrap quiz-flow">
-    <Link href={`/learn/grammar/${data.attempt.lessonId}`} className="back-link"><ArrowLeft size={17} aria-hidden="true"/> Về bài học</Link>
+    <Link href={data.attempt.lessonKind === "practice" ? "/learn/grammar?tab=practice" : `/learn/grammar/${data.attempt.lessonId}`} className="back-link"><ArrowLeft size={17} aria-hidden="true"/> {data.attempt.lessonKind === "practice" ? "Về danh sách bài tập" : "Về bài học"}</Link>
     <header className="quiz-progress">
       <h1>{data.attempt.exerciseTitle}</h1>
       <div className="quiz-stats" aria-label="Tiến độ làm bài">
@@ -164,7 +164,7 @@ export default function Quiz() {
       <p className="quiz-score"><strong>{correct}/{total}</strong> câu đúng</p>
       <p>{wrong.length ? `Có ${wrong.length} câu cần xem lại. Lời giải vẫn nằm ngay dưới từng câu.` : "Tuyệt lắm, ní đã trả lời đúng tất cả!"}</p>
       {wrong.length > 0 && <div className="quiz-wrong-list"><h3>Câu cần xem lại</h3><ul>{wrong.map(item => <li key={item.id}><a href={`#question-${item.id}`}>Câu {item.number}: {item.answer.snapshot.question}</a></li>)}</ul></div>}
-      <div className="inline-actions"><button className="button button-primary" onClick={retry} disabled={retryBusy}><RotateCcw size={17} aria-hidden="true"/> Làm lại</button><Link className="button button-ghost" href={`/learn/grammar/${data.attempt.lessonId}`}>Bài tập khác <ArrowRight size={17} aria-hidden="true"/></Link></div>
+      <div className="inline-actions"><button className="button button-primary" onClick={retry} disabled={retryBusy}><RotateCcw size={17} aria-hidden="true"/> Làm lại</button><Link className="button button-ghost" href={data.attempt.lessonKind === "practice" ? "/learn/grammar?tab=practice" : `/learn/grammar/${data.attempt.lessonId}`}>Bài tập khác <ArrowRight size={17} aria-hidden="true"/></Link></div>
       {retryError && <p className="form-error" role="alert">{retryError}</p>}
     </section>}
 

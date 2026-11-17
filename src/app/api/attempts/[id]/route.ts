@@ -35,6 +35,6 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       const answer = saved.get(questionId);
       return answer ? [{ questionId, selected: answer.selected, correct: answer.correct, snapshot: answer.snapshot }] : [];
     });
-    return Response.json({ attempt: { id, lessonId: attempt.lessonId, exerciseId, exerciseTitle: (exercise as { title?: string } | null)?.title ?? "Bài tập 1", status: attempt.status, answeredCount: attempt.answeredCount, correctCount: attempt.correctCount, total: attempt.questionIds.length, gradingMode: attempt.gradingMode ?? "legacy" }, questions, answers }, { headers: { "Cache-Control": "private, no-store" } });
+    return Response.json({ attempt: { id, lessonId: attempt.lessonId, lessonKind: attempt.lessonKind ?? "theory", exerciseId, exerciseTitle: (exercise as { title?: string } | null)?.title ?? "Bài tập 1", status: attempt.status, answeredCount: attempt.answeredCount, correctCount: attempt.correctCount, total: attempt.questionIds.length, gradingMode: attempt.gradingMode ?? "legacy" }, questions, answers }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) { return jsonError(error); }
 }

@@ -10,7 +10,7 @@ import { VocabDeck } from "./vocab-deck";
 
 const TTL = 900;
 
-async function page(collectionName: string, limit: number, token: string, search = "", kind?: ListeningKind) {
+async function page(collectionName: string, limit: number, token: string, search = "", kind?: ListeningKind | Lesson["kind"]) {
   const collection = db().collection(collectionName);
   let query = collection.where("archivedAt", "==", null);
   if (kind) query = query.where("kind", "==", kind);
@@ -29,7 +29,7 @@ export const cachedTopics = unstable_cache(
   ["content-v3", "topics"], { tags: ["content:topics"], revalidate: TTL },
 );
 export const cachedLessons = unstable_cache(
-  async (limit: number, token: string) => page("grammarLessons", limit, token),
+  async (limit: number, token: string, kind: Lesson["kind"] = "theory") => page("grammarLessons", limit, token, "", kind),
   ["content-v3", "lessons"], { tags: ["content:lessons"], revalidate: TTL },
 );
 export const cachedListening = unstable_cache(

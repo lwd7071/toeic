@@ -52,4 +52,15 @@ describe("start grammar exercise", () => {
     expect((await start("a")).status).toBe(404);
     expect(addAttempt).not.toHaveBeenCalled();
   });
+
+  it("starts practice only from its default exercise and rejects an empty set", async () => {
+    documents.set("grammarLessons/lesson", { kind: "practice", archivedAt: null });
+    documents.set("grammarExercises/default_lesson", { lessonId: "lesson", archivedAt: null });
+    expect((await start("a")).status).toBe(404);
+    questions.mockReturnValueOnce([]);
+    expect((await start("default_lesson")).status).toBe(400);
+    questions.mockReturnValueOnce([{ id: "q", data: () => ({ lessonId: "lesson", exerciseId: "default_lesson", archivedAt: null }) }]);
+    expect((await start("default_lesson")).status).toBe(200);
+    expect(addAttempt.mock.calls[0][0]).toMatchObject({ lessonKind: "practice", exerciseId: "default_lesson", questionIds: ["q"] });
+  });
 });

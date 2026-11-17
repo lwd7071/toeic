@@ -15,10 +15,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const store = db();
     const [lesson, exercise, content] = await Promise.all([cachedLesson(id), cachedExercise(exerciseId), exerciseQuestions(exerciseId)]);
     if (!lesson || !active(lesson as Lesson)) throw new ApiError(404, "Không tìm thấy bài học.");
+    if ((lesson as Lesson).kind === "practice" && exerciseId !== `default_${id}`) throw new ApiError(404, "Không tìm thấy bài tập.");
     if (!exercise || !active(exercise as Exercise) || (exercise as Exercise).lessonId !== id) throw new ApiError(404, "Không tìm thấy bài tập.");
     const questionIds = content.questions.filter(q => q.lessonId === id).map(q => q.id);
     if (!questionIds.length) throw new ApiError(400, "Bài tập chưa có câu hỏi.");
-    const attempt: Attempt = { uid: user.uid, lessonId: id, exerciseId, questionIds, answeredCount: 0, correctCount: 0, status: "in_progress", startedAt: now(), completedAt: null,
+    const attempt: Attempt = { uid: user.uid, lessonId: id, exerciseId, lessonKind: (lesson as Lesson).kind ?? "theory", questionIds, answeredCount: 0, correctCount: 0, status: "in_progress", startedAt: now(), completedAt: null,
       ...(questionIds.length <= 200 ? { gradingMode: "batch" as const, questionVersion: content.version } : {}) };
     const ref = await store.collection("quizAttempts").add(attempt);
     return Response.json({ id: ref.id });
