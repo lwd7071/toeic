@@ -66,6 +66,17 @@ Phiên bản này cần index và bộ đếm trước khi đưa API mới lên 
 
 Giữ script để chạy `check` định kỳ hoặc sau khi sửa dữ liệu trực tiếp trong Firestore Console. `repair` đọc toàn bộ nội dung một lần nên cũng tiêu tốn Reads; chạy khi còn đủ quota. Nếu sửa dữ liệu trực tiếp sau triển khai, cache nội dung chung có thể còn cũ qua request đầu sau mốc 15 phút trong lúc làm mới ở nền; quản trị không dùng cache. Thao tác qua app vô hiệu hóa cache ngay sau khi ghi thành công.
 
+### Chuyển bộ flashcard sang một tài liệu mỗi chủ đề
+
+Phiên bản gộp thẻ cần chuyển dữ liệu **trước khi triển khai ứng dụng mới**. Tạm ngừng ghi từ cả admin lẫn học viên trong suốt quá trình; chỉ mở lại sau khi triển khai xong. Dùng đúng `NEXT_PUBLIC_FIREBASE_PROJECT_ID` của production và service account hoặc ADC như phần đối chiếu bộ đếm ở trên:
+
+1. Chạy `node scripts/reconcile-counts.mjs check`; nếu lệch, sửa bằng `repair` rồi `check` lại.
+2. Chạy `node scripts/migrate-vocab-decks.mjs check`. Mã thoát 1 nghĩa là còn tài liệu cần chuyển hoặc có lỗi cần xử lý. Chủ đề gần 1 MiB phải chia nhỏ trước khi tiếp tục.
+3. Chạy `node scripts/migrate-vocab-decks.mjs migrate`. Script ghi bản sao JSON của các collection liên quan vào `.migration-backups/` **trước khi ghi Firebase**; giữ bản sao này ở nơi an toàn vì chứa tiến độ người học.
+4. Chạy `node scripts/migrate-vocab-decks.mjs check` đến khi báo 0 lỗi và 0 tài liệu cần cập nhật, rồi triển khai ứng dụng mới. Không xóa `vocabCards` hoặc `cardProgress`.
+
+Mỗi file CSV vẫn tối đa 200 dòng; có thể nhập thêm file vào cùng chủ đề khi tài liệu bộ thẻ còn dưới ngưỡng kích thước. API học viên đọc bộ thẻ và một tài liệu tiến độ; lần mở khi cache nội dung trống cần hai lượt đọc Firestore.
+
 Trước khi triển khai phiên bản có nhiều bài tập ngữ pháp trên dữ liệu cũ, chạy một lần `node scripts/migrate-grammar-exercises.mjs` với `NEXT_PUBLIC_FIREBASE_PROJECT_ID` và một trong hai cách xác thực trên. Script tạo “Bài tập 1” cho mỗi bài ngữ pháp cũ và gắn các câu hỏi cũ vào đó; chạy lại không tạo trùng. Lượt làm bài và câu trả lời cũ được giữ nguyên.
 
 Đưa các biến trong `.env.local` vào Vercel Project Settings, cộng thêm `FIREBASE_SERVICE_ACCOUNT_JSON` là bí mật máy chủ. Đặt `STUDY_TRACKING_START_DATE` thành ngày tính năng lịch học bắt đầu hoạt động theo giờ Việt Nam (`YYYY-MM-DD`); các ngày trước đó hiển thị là chưa theo dõi. Triển khai Firestore Rules từ `firestore.rules` bằng `firebase deploy --only firestore:rules --project <firebase-project-id>` để khóa truy cập trực tiếp từ client. Sau khi có domain Vercel, thêm domain đó vào Firebase Auth Authorized domains. Không triển khai bản thật trước khi đã bật Google Sign-In, tạo Firestore và cấu hình service account.

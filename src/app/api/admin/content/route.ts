@@ -63,7 +63,11 @@ export async function POST(request: Request) {
     const title = textField(body.title, "Tên", 120);
     const store = db();
     if (body.kind === "topic") {
-      const ref = await store.collection("vocabTopics").add({ title, searchTitle: searchTitle(title), totalCount: 0, activeCount: 0, archivedAt: null, createdAt: now() });
+      const ref = store.collection("vocabTopics").doc();
+      const batch = store.batch();
+      batch.create(ref, { title, searchTitle: searchTitle(title), totalCount: 0, activeCount: 0, archivedAt: null, createdAt: now() });
+      batch.create(store.collection("vocabDecks").doc(ref.id), { title, archivedAt: null, cards: [] });
+      await batch.commit();
       revalidateTag("content:topics");
       return Response.json({ id: ref.id });
     }

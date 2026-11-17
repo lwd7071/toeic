@@ -4,7 +4,7 @@ const { unstableCache, db, methods } = vi.hoisted(() => ({ unstableCache: vi.fn(
 vi.mock("next/cache", () => ({ unstable_cache: unstableCache }));
 vi.mock("./firebase-admin", () => ({ db }));
 
-import { cachedTopics, cachedLessons, cachedListening } from "./cached-content";
+import { cachedTopics, cachedLessons, cachedListening, cachedCards } from "./cached-content";
 
 describe("shared content cache", () => {
   beforeEach(() => {
@@ -47,5 +47,15 @@ describe("shared content cache", () => {
     };
     db.mockReturnValue({ collection: () => collection });
     await expect(cachedListening(20, "other-set", "picture")).rejects.toThrow("Trang không hợp lệ.");
+  });
+
+  it("loads a whole vocabulary deck with one document read", async () => {
+    const get = vi.fn(async () => ({ data: () => ({ title: "Topic", archivedAt: null, cards: [{ id: "card", english: "hello" }] }) }));
+    db.mockReturnValue({ collection: (name: string) => {
+      expect(name).toBe("vocabDecks");
+      return { doc: (id: string) => { expect(id).toBe("topic"); return { get }; } };
+    } });
+    expect((await cachedCards("topic")).cards).toHaveLength(1);
+    expect(get).toHaveBeenCalledTimes(1);
   });
 });

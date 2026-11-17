@@ -12,3 +12,4 @@ service-account*.json
 *-mobile*.png
 tsconfig.tsbuildinfo
 *-debug.log
+.migration-backups/

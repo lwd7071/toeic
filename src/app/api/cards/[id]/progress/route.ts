@@ -27,6 +27,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       const previous = await tx.get(progressRef);
       const prior = previous.data()?.status;
       tx.set(progressRef, { uid: user.uid, cardId: id, topicId: card.topicId, status, updatedAt });
+      tx.set(summaryRef, { uid: user.uid, topicId: card.topicId, statuses: { [id]: status } }, { merge: true });
       if (prior !== status) tx.set(summaryRef, {
         uid: user.uid, topicId: card.topicId,
         ...(prior === "remembered" || prior === "review" ? { [prior]: FieldValue.increment(-1) } : {}),

@@ -17,7 +17,7 @@ describe("content import reads", () => {
         where: (_field: unknown, _op: string, ids: string[]) => ({ get: async () => ({ docs: ids.filter(id => matched.includes(id)).map(id => ({ id })) }) }) }),
       getAll,
       runTransaction: async (task: (tx: unknown) => Promise<unknown>) => task({
-        get: async (ref: { path: string }) => { reads.push(ref.path); return { exists: true, data: () => ({ archivedAt: null }) }; },
+        get: async (ref: { path: string }) => { reads.push(ref.path); return { exists: true, data: () => ref.path.startsWith("vocabDecks/") ? { title: "Topic", archivedAt: null, cards: [] } : { archivedAt: null } }; },
         create: (ref: { path: string }) => creates.push(ref.path), update: vi.fn(),
       }),
     });
@@ -38,7 +38,7 @@ describe("content import reads", () => {
     const commit = await PUT(new Request("http://localhost", { method: "PUT", body: form(hash) }));
     expect(commit.status).toBe(200);
     expect(getAll).not.toHaveBeenCalled();
-    expect(reads).toEqual(["vocabTopics/topic-1"]);
+    expect(reads).toEqual(["vocabTopics/topic-1", "vocabDecks/topic-1"]);
     expect(creates.some(path => path.startsWith("uniqueKeys/"))).toBe(true);
   });
 

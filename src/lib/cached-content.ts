@@ -6,6 +6,7 @@ import { PAGE_SIZE } from "./pagination";
 import { createHash } from "node:crypto";
 import { Card, Exercise, Lesson, Question, Topic } from "./models";
 import { ListeningItem, ListeningKind, ListeningSet } from "./listening";
+import { VocabDeck } from "./vocab-deck";
 
 const TTL = 900;
 
@@ -37,12 +38,9 @@ export const cachedListening = unstable_cache(
 );
 
 export const cachedCards = unstable_cache(async (topicId: string) => {
-  const store = db();
-  const topic = await store.collection("vocabTopics").doc(topicId).get();
-  if (!topic.exists || topic.data()?.archivedAt) return { topic: topic.exists ? { id: topic.id, ...topic.data() as Topic } : null, cards: [] as (Card & { id: string })[] };
-  const cards = await store.collection("vocabCards").where("topicId", "==", topicId).get();
-  return { topic: topic.exists ? { id: topic.id, ...topic.data() as Topic } : null,
-    cards: cards.docs.map(d => ({ id: d.id, ...d.data() as Card })) };
+  const doc = await db().collection("vocabDecks").doc(topicId).get();
+  const deck = doc.data() as VocabDeck | undefined;
+  return { topic: deck ? { id: topicId, title: deck.title, archivedAt: deck.archivedAt } : null, cards: deck?.cards ?? [] };
 }, ["content-v3", "cards"], { tags: ["content:topics"], revalidate: TTL });
 
 export const cachedLesson = unstable_cache(async (id: string) => {

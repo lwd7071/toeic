@@ -6,6 +6,7 @@ import { Card, Question } from "@/lib/models";
 import { countChange, searchTitle } from "@/lib/content-counts";
 import { FieldValue } from "firebase-admin/firestore";
 import { revalidateTag } from "next/cache";
+import { assertDeckSize, VocabDeck } from "@/lib/vocab-deck";
 
 export const runtime = "nodejs";
 const collections: Record<string, string> = { topic: "vocabTopics", card: "vocabCards", lesson: "grammarLessons", exercise: "grammarExercises", question: "grammarQuestions" };
@@ -30,6 +31,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ kind:
         const current = await tx.get(ref);
         if (!current.exists) throw new ApiError(404, "Không tìm thấy nội dung.");
         const data = current.data()!;
+        const deckRef = kind === "topic" || kind === "card" ? store.collection("vocabDecks").doc(kind === "topic" ? id : data.topicId) : null;
+        const deckDoc = deckRef ? await tx.get(deckRef) : null;
+        if (deckRef && !deckDoc?.exists) throw new ApiError(409, "Bộ thẻ chưa được chuyển dữ liệu.");
         const change = countChange({ archivedAt: data.archivedAt }, { archivedAt });
         const parentRef = kind === "card" ? store.collection("vocabTopics").doc(data.topicId) : kind === "question" ? store.collection("grammarExercises").doc(data.exerciseId) : kind === "exercise" ? store.collection("grammarLessons").doc(data.lessonId) : null;
         const parent = parentRef ? await tx.get(parentRef) : null;
@@ -39,6 +43,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ kind:
         const summaries = progress ? await Promise.all(progress.docs.map(p => tx.get(store.collection("topicProgress").doc(`${p.data().uid}_${data.topicId}`)))) : [];
         const topicSummaries = kind === "topic" ? await tx.get(store.collection("topicProgress").where("topicId", "==", id)) : null;
         tx.update(ref, { archivedAt });
+        if (deckRef && deckDoc) {
+          const deck = deckDoc.data() as VocabDeck;
+          if (kind === "topic") tx.update(deckRef, { archivedAt });
+          else {
+            const cards = deck.cards.map(card => card.id === id ? { ...card, archivedAt } : card);
+            tx.update(deckRef, { cards });
+          }
+        }
         if (parentRef && parent) {
           if (kind === "exercise") tx.update(parentRef, { activeCount: FieldValue.increment(change.activeCount * (data.activeCount ?? 0)) });
           else tx.update(parentRef, { activeCount: FieldValue.increment(change.activeCount) });
@@ -61,7 +73,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ kind:
     }
     if (kind === "topic") {
       const title = textField(body.title, "Tên chủ đề", 120);
-      await ref.update({ title, searchTitle: searchTitle(title) });
+      await store.runTransaction(async tx => {
+        const deckRef = store.collection("vocabDecks").doc(id);
+        const deck = await tx.get(deckRef);
+        if (!deck.exists) throw new ApiError(409, "Bộ thẻ chưa được chuyển dữ liệu.");
+        tx.update(ref, { title, searchTitle: searchTitle(title) });
+        tx.update(deckRef, { title });
+      });
     } else if (kind === "lesson") {
       const title = textField(body.title, "Tên bài", 120);
       const theory = typeof body.theory === "string" ? body.theory.trim() : "";
@@ -79,6 +97,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ kind:
       await store.runTransaction(async tx => {
         const current = await tx.get(ref);
         if (!current.exists) throw new ApiError(404, "Không tìm thấy thẻ.");
+        const deckRef = store.collection("vocabDecks").doc(card.topicId);
+        const deckDoc = await tx.get(deckRef);
+        if (!deckDoc.exists) throw new ApiError(409, "Bộ thẻ chưa được chuyển dữ liệu.");
+        const deck = deckDoc.data() as VocabDeck;
+        const cards = deck.cards.map(item => item.id === id ? { ...item, english, vietnamese, key } : item);
+        const updated = { ...deck, cards };
+        assertDeckSize(updated);
         if (key !== card.key) {
           const duplicate = await tx.get(newMarker);
           if (duplicate.exists) throw new ApiError(409, "Cặp từ và nghĩa đã có trong chủ đề.");
@@ -86,6 +111,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ kind:
           tx.create(newMarker, { itemId: id, kind: "cards" });
         }
         tx.update(ref, { english, vietnamese, key });
+        tx.update(deckRef, { cards });
       });
     } else {
       const question = doc.data() as Question;

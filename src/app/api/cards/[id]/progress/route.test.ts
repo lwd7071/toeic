@@ -30,5 +30,6 @@ describe("card progress summaries", () => {
     for (const path of ["topicProgress/learner_topic", "userProgress/learner"]) {
       expect(writes).toContainEqual({ path, value: expect.objectContaining({ review: { increment: -1 }, remembered: { increment: 1 } }) });
     }
+    expect(writes).toContainEqual({ path: "topicProgress/learner_topic", value: expect.objectContaining({ statuses: { card: "remembered" } }) });
   });
 });
