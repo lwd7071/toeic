@@ -3,7 +3,7 @@
 import { useContext, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, BookOpenText, ListChecks } from "lucide-react";
 import { EmptyState, ErrorState, Loading, PageTitle } from "@/components/ui";
 import { HomeData } from "@/lib/client-types";
 import { Pagination, usePagination } from "@/components/pagination";
@@ -31,13 +31,16 @@ export default function Grammar() {
       router.push(`/learn/quiz/${result.id}`);
     } catch (cause) { setStartError(cause instanceof Error ? cause.message : "Không bắt đầu được bài."); setBusy(""); }
   }
-  return <><PageTitle title="Góc ngữ pháp" description="Chọn cách học hợp với ní hôm nay."/>
-    <div className="filter-row"><button className={kind === "theory" ? "active" : ""} onClick={() => select("theory")}>Lý thuyết + bài tập</button><button className={kind === "practice" ? "active" : ""} onClick={() => select("practice")}>Bài tập</button></div>
+  return <><PageTitle title="Góc ngữ pháp" description="Chọn một dạng bài để luyện cùng Miu."/>
+    <div className="filter-row listening-tabs" role="group" aria-label="Chọn dạng bài ngữ pháp">
+      <button type="button" className={kind === "theory" ? "active" : ""} aria-pressed={kind === "theory"} onClick={() => select("theory")}>Lý thuyết + bài tập</button>
+      <button type="button" className={kind === "practice" ? "active" : ""} aria-pressed={kind === "practice"} onClick={() => select("practice")}>Bài tập</button>
+    </div>
     {loading ? <Loading/> : error || !data ? <ErrorState message={error} retry={reload}/> : <>
-      {data.items.length ? <div className="lesson-list">{data.items.map((lesson, index) => <div className="lesson-row" key={lesson.id}>
-        <span className="lesson-number">{String((pagination.page-1)*20+index+1).padStart(2,"0")}</span><span><h3>{lesson.title}</h3><p>{lesson.total ? `${lesson.total} câu hỏi · ${lesson.lastAttempt ? lesson.lastAttempt.status === "complete" ? `Lần gần nhất: ${lesson.lastAttempt.correct}/${lesson.lastAttempt.total}` : "Đang làm dở" : "Chưa học"}` : "Chưa có câu hỏi"}</p></span>
-        {kind === "theory" ? <Link href={`/learn/grammar/${lesson.id}`} className="button button-primary button-small">Xem bài <ArrowRight size={17}/></Link> : <button className="button button-primary button-small" disabled={Boolean(busy) || !lesson.total} onClick={() => start(lesson.id)}>{busy === lesson.id ? "Đang chuẩn bị..." : "Bắt đầu"}<ArrowRight size={17}/></button>}
-      </div>)}</div> : <EmptyState title={kind === "theory" ? "Chưa có bài lý thuyết" : "Chưa có bài tập"} detail="Khi admin thêm nội dung, ní sẽ thấy bài ở đây."/>}
+      {data.items.length ? <div className="lesson-list">{data.items.map(lesson => {
+        const details = <><span className="lesson-number">{kind === "theory" ? <BookOpenText size={22}/> : <ListChecks size={22}/>}</span><span><h3>{lesson.title}</h3><p>{kind === "theory" ? "Lý thuyết + bài tập" : "Bài tập"} · {lesson.total} câu · {busy === lesson.id ? "Đang chuẩn bị..." : !lesson.total && kind === "practice" ? "Chưa có câu hỏi" : lesson.lastAttempt ? lesson.lastAttempt.status === "complete" ? `Lần gần nhất ${lesson.lastAttempt.correct}/${lesson.lastAttempt.total}` : "Đang làm dở" : "Chưa học"}</p></span><ArrowRight size={19}/></>;
+        return kind === "theory" ? <Link className="lesson-row" href={`/learn/grammar/${lesson.id}`} key={lesson.id}>{details}</Link> : <button type="button" className="lesson-row lesson-row-action" key={lesson.id} disabled={Boolean(busy) || !lesson.total} onClick={() => start(lesson.id)} aria-label={`${lesson.title}: ${lesson.total ? "bắt đầu làm bài" : "chưa có câu hỏi"}`}>{details}</button>;
+      })}</div> : <EmptyState title={kind === "theory" ? "Chưa có bài lý thuyết" : "Chưa có bài tập"} detail="Khi admin thêm nội dung, ní sẽ thấy bài ở đây."/>}
       <Pagination page={pagination.page} nextPageToken={data.nextPageToken} previous={pagination.previous} next={pagination.next}/>
       {startError && <p className="form-error" role="alert">{startError}</p>}
     </>}

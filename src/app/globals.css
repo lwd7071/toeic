@@ -90,6 +90,7 @@ p{color:var(--muted)}
 .lesson-list{display:grid;gap:13px}
 .lesson-row{display:flex;align-items:center;gap:18px;background:var(--white);padding:18px 22px;border-radius:15px;box-shadow:0 8px 19px rgba(73,50,89,.06);transition:transform .2s ease}
 .lesson-row:hover{transform:translateY(-2px)}
+.lesson-row-action{width:100%;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer}.lesson-row-action:disabled{cursor:not-allowed;opacity:.6;transform:none}
 .lesson-row>button{margin-left:auto;flex:0 0 auto}.lesson-row>span:nth-child(2){min-width:0}.admin-actions button[aria-pressed=true]{background:var(--lavender);outline:2px solid #8a6bb2}
 @media(max-width:560px){.lesson-row:has(>button){flex-wrap:wrap}.lesson-row>button{margin-left:66px}}
 .lesson-number{width:48px;height:48px;flex:0 0 auto;border-radius:13px;display:grid;place-items:center;background:var(--pink);font:900 1.1rem Nunito,sans-serif}
