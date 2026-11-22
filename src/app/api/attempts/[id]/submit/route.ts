@@ -36,7 +36,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       if (!question) throw new ApiError(409, "Một câu hỏi không còn tồn tại.");
       const choice = selected.get(questionId)!;
       return { attemptId: id, uid: user.uid, questionId, selected: choice, correct: choice === question.correctAnswer,
-        snapshot: { question: question.question, A: question.A, B: question.B, C: question.C, D: question.D, correctAnswer: question.correctAnswer, explanation: question.explanation }, answeredAt };
+        snapshot: { question: question.question, A: question.A, B: question.B, C: question.C, D: question.D, correctAnswer: question.correctAnswer, explanation: question.explanation, ...(question.translation ? { translation: question.translation } : {}) }, answeredAt };
     });
     const correctCount = answers.filter(a => a.correct).length;
     const day = qualifiedDay(new Date(answeredAt));

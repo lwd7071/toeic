@@ -15,7 +15,7 @@ describe("batch grammar submission", () => {
     documents.clear();
     documents.set("quizAttempts/attempt", { uid: "student", lessonId: "lesson", exerciseId: "exercise", questionIds: ["q1", "q2"], status: "in_progress", gradingMode: "batch", questionVersion: "v1" });
     exerciseQuestions.mockResolvedValue({ version: "v1", questions: [
-      { id: "q1", question: "One ____", A: "a", B: "b", C: "c", D: "d", correctAnswer: "B", explanation: "Because" },
+      { id: "q1", question: "One ____", A: "a", B: "b", C: "c", D: "d", correctAnswer: "B", explanation: "Because", translation: "Câu một." },
       { id: "q2", question: "Two ____", A: "a", B: "b", C: "c", D: "d", correctAnswer: "C", explanation: "Because" },
     ] });
     db.mockReturnValue({ collection: (name: string) => ({ doc: (id: string) => ({ path: `${name}/${id}`, get: async () => ({ data: () => documents.get(`${name}/${id}`) }) }) }),
@@ -31,7 +31,7 @@ describe("batch grammar submission", () => {
     const response = await submit([{ questionId: "q1", selected: "B" }, { questionId: "q2", selected: "A" }]);
     expect(response.status).toBe(200);
     expect(documents.get("quizAttempts/attempt")).toMatchObject({ status: "complete", answeredCount: 2, correctCount: 1 });
-    expect(documents.get("quizAnswers/attempt_q1")).toMatchObject({ correct: true, selected: "B" });
+    expect(documents.get("quizAnswers/attempt_q1")).toMatchObject({ correct: true, selected: "B", snapshot: { translation: "Câu một." } });
     expect((await submit([{ questionId: "q1", selected: "B" }, { questionId: "q2", selected: "A" }])).status).toBe(409);
   });
 

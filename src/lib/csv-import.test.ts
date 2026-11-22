@@ -24,6 +24,17 @@ describe("CSV import", () => {
     expect(result.errors[0]).toContain("Dòng 2");
   });
 
+  it("imports the translated sentence and still accepts older grammar files", () => {
+    const header = "question,A,B,C,D,correct_answer,explanation";
+    const row = "She ____ here.,is,are,be,been,A,Vì chủ ngữ số ít";
+    const translated = parseImport(Buffer.from(`${header},translation\n${row},Cô ấy ở đây.\n`), "questions");
+    expect(translated.errors).toEqual([]);
+    expect(translated.rows[0]).toMatchObject({ translation: "Cô ấy ở đây." });
+    const older = parseImport(Buffer.from(`${header}\n${row}\n`), "questions");
+    expect(older.errors).toEqual([]);
+    expect(older.rows[0]).toMatchObject({ translation: "" });
+  });
+
   it("rejects the wrong number of columns with a row number", () => {
     const result = parseImport(Buffer.from("english,vietnamese\nhello\n"), "cards");
     expect(result.errors).toContain("Dòng 2: cần đúng 2 cột.");

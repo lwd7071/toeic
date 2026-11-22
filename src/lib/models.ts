@@ -2,9 +2,9 @@ export type Topic = { title: string; searchTitle: string; totalCount: number; ac
 export type Card = { topicId: string; english: string; vietnamese: string; key: string; archivedAt: string | null; createdAt: string };
 export type Lesson = { title: string; theory: string; kind: "theory" | "practice"; totalCount: number; activeCount: number; archivedAt: string | null; createdAt: string };
 export type Exercise = { lessonId: string; title: string; totalCount: number; activeCount: number; archivedAt: string | null; createdAt: string };
-export type Question = { lessonId: string; exerciseId: string; question: string; A: string; B: string; C: string; D: string; correctAnswer: "A" | "B" | "C" | "D"; explanation: string; key: string; archivedAt: string | null; createdAt: string };
+export type Question = { lessonId: string; exerciseId: string; question: string; A: string; B: string; C: string; D: string; correctAnswer: "A" | "B" | "C" | "D"; explanation: string; translation?: string; key: string; archivedAt: string | null; createdAt: string };
 export type Attempt = { uid: string; lessonId: string; exerciseId?: string; lessonKind?: "theory" | "practice"; questionIds: string[]; answeredCount: number; correctCount: number; status: "in_progress" | "complete"; startedAt: string; completedAt: string | null; gradingMode?: "batch"; questionVersion?: string };
-export type Answer = { attemptId: string; uid: string; questionId: string; selected: "A" | "B" | "C" | "D"; correct: boolean; snapshot: Pick<Question,"question"|"A"|"B"|"C"|"D"|"correctAnswer"|"explanation">; answeredAt: string };
+export type Answer = { attemptId: string; uid: string; questionId: string; selected: "A" | "B" | "C" | "D"; correct: boolean; snapshot: Pick<Question,"question"|"A"|"B"|"C"|"D"|"correctAnswer"|"explanation"|"translation">; answeredAt: string };
 
 export function active<T extends { archivedAt: string | null }>(x: T): boolean { return !x.archivedAt; }
 export function now(): string { return new Date().toISOString(); }

@@ -34,7 +34,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const question = questionDoc.data() as Question | undefined;
       if (!question) throw new ApiError(409, "Câu hỏi không còn tồn tại.");
       const correct = selected === question.correctAnswer;
-      const answer: Answer = { attemptId: id, uid: user.uid, questionId, selected, correct, snapshot: { question: question.question, A: question.A, B: question.B, C: question.C, D: question.D, correctAnswer: question.correctAnswer, explanation: question.explanation }, answeredAt: now() };
+      const answer: Answer = { attemptId: id, uid: user.uid, questionId, selected, correct, snapshot: { question: question.question, A: question.A, B: question.B, C: question.C, D: question.D, correctAnswer: question.correctAnswer, explanation: question.explanation, ...(question.translation ? { translation: question.translation } : {}) }, answeredAt: now() };
       const count = attempt.answeredCount + 1;
       const complete = count === attempt.questionIds.length;
       const completedAt = complete ? now() : null;

@@ -29,7 +29,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       const source = answer?.snapshot ?? unanswered.get(questionId);
       if (!source) throw new ApiError(409, "Một câu hỏi của lượt này không còn tồn tại.");
       return { id: questionId, question: source.question, A: source.A, B: source.B, C: source.C, D: source.D,
-        ...(batchContent && attempt.status === "in_progress" ? { correctAnswer: source.correctAnswer, explanation: source.explanation } : {}) };
+        ...(batchContent && attempt.status === "in_progress" ? { correctAnswer: source.correctAnswer, explanation: source.explanation, translation: source.translation } : {}) };
     });
     const answers = attempt.questionIds.flatMap(questionId => {
       const answer = saved.get(questionId);

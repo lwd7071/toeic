@@ -4,7 +4,7 @@ import { ApiError } from "./errors";
 
 export type ImportKind = "cards" | "questions";
 export type CardRow = { english: string; vietnamese: string; key: string };
-export type QuestionRow = { question: string; A: string; B: string; C: string; D: string; correctAnswer: "A"|"B"|"C"|"D"; explanation: string; key: string };
+export type QuestionRow = { question: string; A: string; B: string; C: string; D: string; correctAnswer: "A"|"B"|"C"|"D"; explanation: string; translation: string; key: string };
 export type ParsedImport = { hash: string; rows: CardRow[] | QuestionRow[]; errors: string[] };
 
 export function normalizedKey(...values: string[]): string {
@@ -25,9 +25,10 @@ export function parseImport(buffer: Buffer, kind: ImportKind): ParsedImport {
   } catch (error) {
     throw new ApiError(400, `CSV không hợp lệ: ${error instanceof Error ? error.message : "không đọc được file"}`);
   }
-  const expected = kind === "cards" ? ["english", "vietnamese"] : ["question", "A", "B", "C", "D", "correct_answer", "explanation"];
+  const expected = kind === "cards" ? ["english", "vietnamese"] : ["question", "A", "B", "C", "D", "correct_answer", "explanation", "translation"];
   const header = records.shift()?.map(x => x.trim()) ?? [];
-  if (header.length !== expected.length || header.some((x, i) => x.toLowerCase() !== expected[i].toLowerCase())) {
+  const legacyQuestions = kind === "questions" && header.length === expected.length - 1;
+  if ((!legacyQuestions && header.length !== expected.length) || header.some((x, i) => x.toLowerCase() !== expected[i].toLowerCase())) {
     throw new ApiError(400, `Dòng tiêu đề phải là: ${expected.join(",")}`);
   }
   if (!records.length || records.length > 200) throw new ApiError(400, "File cần có từ 1 đến 200 dòng dữ liệu.");
@@ -36,7 +37,8 @@ export function parseImport(buffer: Buffer, kind: ImportKind): ParsedImport {
   const rows: Array<CardRow | QuestionRow> = [];
   records.forEach((record, index) => {
     const line = index + 2;
-    if (record.length !== expected.length) { errors.push(`Dòng ${line}: cần đúng ${expected.length} cột.`); return; }
+    const columns = legacyQuestions ? expected.length - 1 : expected.length;
+    if (record.length !== columns) { errors.push(`Dòng ${line}: cần đúng ${columns} cột.`); return; }
     const values = record.map(x => x.trim().normalize("NFC"));
     if (values.some(x => !x)) { errors.push(`Dòng ${line}: thiếu dữ liệu.`); return; }
     if (values.some(x => x.length > 1000)) { errors.push(`Dòng ${line}: ô dài quá 1000 ký tự.`); return; }
@@ -47,14 +49,14 @@ export function parseImport(buffer: Buffer, kind: ImportKind): ParsedImport {
       seen.add(key);
       rows.push({ english, vietnamese, key });
     } else {
-      const [question, A, B, C, D, answer, explanation] = values;
+      const [question, A, B, C, D, answer, explanation, translation = ""] = values;
       if ((question.match(/____/g) ?? []).length !== 1) { errors.push(`Dòng ${line}: câu hỏi cần đúng một chỗ trống ____.`); return; }
       const correctAnswer = answer.toUpperCase();
       if (!["A", "B", "C", "D"].includes(correctAnswer)) { errors.push(`Dòng ${line}: đáp án đúng phải là A, B, C hoặc D.`); return; }
       const key = normalizedKey(question);
       if (seen.has(key)) { errors.push(`Dòng ${line}: trùng câu hỏi trong file.`); return; }
       seen.add(key);
-      rows.push({ question, A, B, C, D, correctAnswer: correctAnswer as QuestionRow["correctAnswer"], explanation, key });
+      rows.push({ question, A, B, C, D, correctAnswer: correctAnswer as QuestionRow["correctAnswer"], explanation, translation, key });
     }
   });
   return { hash, rows: rows as CardRow[] | QuestionRow[], errors };

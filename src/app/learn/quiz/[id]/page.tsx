@@ -10,7 +10,7 @@ import { useLoad } from "@/lib/use-load";
 import { ViewerUid, invalidateLoadCache } from "@/lib/use-load";
 
 type Choice = "A" | "B" | "C" | "D";
-type Question = { id: string; question: string; A: string; B: string; C: string; D: string; correctAnswer?: Choice; explanation?: string };
+type Question = { id: string; question: string; A: string; B: string; C: string; D: string; correctAnswer?: Choice; explanation?: string; translation?: string };
 type Snapshot = Omit<Question, "id"> & { correctAnswer: Choice; explanation: string };
 type Answer = { questionId: string; selected: Choice; correct: boolean; snapshot: Snapshot };
 type Data = {
@@ -59,7 +59,7 @@ export default function Quiz() {
         const choice = stored[question.id];
         if (!choices.includes(choice) || !question.correctAnswer || question.explanation === undefined) continue;
         restored[question.id] = { questionId: question.id, selected: choice, correct: choice === question.correctAnswer,
-          snapshot: { question: question.question, A: question.A, B: question.B, C: question.C, D: question.D, correctAnswer: question.correctAnswer, explanation: question.explanation } };
+          snapshot: { question: question.question, A: question.A, B: question.B, C: question.C, D: question.D, correctAnswer: question.correctAnswer, explanation: question.explanation, translation: question.translation } };
       }
       setNewAnswers(restored);
     } catch { try { sessionStorage.removeItem(`miu_quiz_${uid}_${id}`); } catch {} }
@@ -88,7 +88,7 @@ export default function Quiz() {
       if (!question?.correctAnswer || question.explanation === undefined) return;
       inFlight.current.add(questionId);
       const answer: Answer = { questionId, selected, correct: selected === question.correctAnswer,
-        snapshot: { question: question.question, A: question.A, B: question.B, C: question.C, D: question.D, correctAnswer: question.correctAnswer, explanation: question.explanation } };
+        snapshot: { question: question.question, A: question.A, B: question.B, C: question.C, D: question.D, correctAnswer: question.correctAnswer, explanation: question.explanation, translation: question.translation } };
       setNewAnswers(previous => ({ ...previous, [questionId]: answer }));
       try {
         const key = `miu_quiz_${uid}_${id}`;
@@ -189,6 +189,7 @@ export default function Quiz() {
           {answer && <div className={`quiz-feedback${answer.correct ? "" : " wrong"}`} role={newAnswers[question.id] ? "status" : "note"}>
             <strong>{answer.correct ? "Đúng rồi!" : "Chưa đúng."} Đáp án: {answer.snapshot.correctAnswer}. {answer.snapshot[answer.snapshot.correctAnswer]}</strong>
             <p>{answer.snapshot.explanation}</p>
+            {answer.snapshot.translation && <p>Câu dịch: {answer.snapshot.translation}</p>}
           </div>}
           {errors[question.id] && <p className="form-error" role="alert">{errors[question.id]} <button type="button" className="quiz-resync" onClick={async () => { await reload(); setErrors(previous => ({ ...previous, [question.id]: "" })); }}>Tải lại tiến độ</button></p>}
         </section>;
