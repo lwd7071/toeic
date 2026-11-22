@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useContext, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { useLoad } from "@/lib/use-load";
@@ -14,10 +14,25 @@ type Data = { set: { id: string; title: string; kind: "dictation" | "picture" };
 type Result = { id: string; correct: number; total: number; answers: { id: string; selected: string; correct: boolean; expected: string; A?: string; B?: string; C?: string; D?: string }[] };
 type Feedback = { correct: boolean; expected: string };
 
-function Media({ item }: { item: Item }) {
-  return <div className="listening-media">
-    {item.imageUrl && <><iframe className="drive-image" src={item.imageUrl} title="Tranh cần nghe mô tả" loading="lazy"/>{item.imageViewUrl && <a href={item.imageViewUrl} target="_blank" rel="noopener noreferrer">Mở ảnh trên Drive nếu khung không hiển thị</a>}</>}
-    <div className="drive-audio-frame"><iframe className="drive-audio" src={item.audioUrl} title="Nghe audio câu hỏi" loading="lazy" allow="autoplay"/></div>
+// Lazy-mount iframe Google Drive khi cuộn tới để tránh nghẽn băng thông do hàng chục iframe load cùng lúc
+function Media({ item, eager = false }: { item: Item; eager?: boolean }) {
+  const [visible, setVisible] = useState(eager);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (visible || !ref.current || typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry?.isIntersecting) { setVisible(true); observer.disconnect(); }
+    }, { rootMargin: "300px" });
+    observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [visible]);
+
+  return <div className="listening-media" ref={ref}>
+    {item.imageUrl && <>{visible ? <iframe className="drive-image" src={item.imageUrl} title="Tranh cần nghe mô tả" loading="lazy"/> : <div className="drive-image"/>}{item.imageViewUrl && <a href={item.imageViewUrl} target="_blank" rel="noopener noreferrer">Mở ảnh trên Drive nếu khung không hiển thị</a>}</>}
+    <div className="drive-audio-frame">{visible && <iframe className="drive-audio" src={item.audioUrl} title="Nghe audio câu hỏi" loading="lazy" allow="autoplay"/>}</div>
     <a href={item.audioViewUrl} target="_blank" rel="noopener noreferrer">Mở MP3 trên Drive</a>
   </div>;
 }
@@ -63,7 +78,7 @@ export default function ListeningExercise() {
     {result && <div className="paper-panel listening-result" role="status"><h2>Hoàn thành rồi ní!</h2><p className="result-score">{result.correct}/{result.total}</p><Link href={`/learn/listening/result/${result.id}`} className="button button-mint">Xem kết quả đã lưu</Link></div>}
     {!data.items.length && <div className="paper-panel"><p>Bài này chưa có câu hỏi.</p></div>}
     {dictation && current && !result && <div className="listening-list"><section className="paper-panel" key={current.id}>
-      <h2>Câu {index + 1} / {data.items.length}</h2><Media item={current}/>
+      <h2>Câu {index + 1} / {data.items.length}</h2><Media item={current} eager/>
       <label className="listening-answer">Nội dung ní nghe được<textarea className="field field-textarea" value={responses[current.id] ?? ""} disabled={Boolean(feedback) || busy} onChange={e => setResponses({ ...responses, [current.id]: e.target.value })} placeholder="Gõ câu tiếng Anh vào đây"/></label>
       {feedback && <div className={`feedback ${feedback.correct ? "" : "wrong"}`} role="status"><h3>{feedback.correct ? "Chính xác!" : "Chưa đúng rồi"}</h3><p>Đáp án: {feedback.expected}</p></div>}
       <div className="quiz-next">{feedback ? <button className="button button-primary" disabled={busy} onClick={() => {
@@ -73,7 +88,7 @@ export default function ListeningExercise() {
     </section></div>}
     {!dictation && <div className="listening-list">{data.items.map((item, index) => {
       const answer = result?.answers.find(a => a.id === item.id);
-      return <section className="paper-panel" key={item.id}><h2>Câu {index + 1}</h2><Media item={item}/>
+      return <section className="paper-panel" key={item.id}><h2>Câu {index + 1}</h2><Media item={item} eager={index < 2}/>
         <fieldset className="listening-choices" disabled={Boolean(result)}><legend>Chọn câu mô tả đúng</legend>{(["A", "B", "C", "D"] as const).map(letter => <label key={letter}><input type="radio" name={item.id} checked={responses[item.id] === letter} onChange={() => setResponses({ ...responses, [item.id]: letter })}/><span>{letter}</span></label>)}</fieldset>
         {answer && <div className={`feedback ${answer.correct ? "" : "wrong"}`}><h3>{answer.correct ? "Chính xác!" : "Chưa đúng rồi"}</h3><p>Đáp án: {answer.expected} · A. {answer.A} · B. {answer.B} · C. {answer.C} · D. {answer.D}</p></div>}
       </section>;
