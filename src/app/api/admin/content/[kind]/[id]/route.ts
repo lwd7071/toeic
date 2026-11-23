@@ -99,15 +99,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ kind:
       if (lesson.data()?.kind === "practice") throw new ApiError(400, "Hãy đổi tên ở bài tập thuần.");
       await ref.update({ title: textField(body.title, "Tên bài tập", 120) });
     } else if (kind === "card") {
-      const card = doc.data() as Card;
       const english = textField(body.english, "Từ tiếng Anh", 1000);
       const vietnamese = textField(body.vietnamese, "Nghĩa tiếng Việt", 1000);
       const key = normalizedKey(english, vietnamese);
-      const oldMarker = store.collection("uniqueKeys").doc(uniqueId("cards", card.topicId, card.key));
-      const newMarker = store.collection("uniqueKeys").doc(uniqueId("cards", card.topicId, key));
       await store.runTransaction(async tx => {
         const current = await tx.get(ref);
         if (!current.exists) throw new ApiError(404, "Không tìm thấy thẻ.");
+        // Đọc key/topicId mới nhất trong transaction để tránh xóa nhầm uniqueKeys khi sửa đồng thời
+        const card = current.data() as Card;
         const deckRef = store.collection("vocabDecks").doc(card.topicId);
         const deckDoc = await tx.get(deckRef);
         if (!deckDoc.exists) throw new ApiError(409, "Bộ thẻ chưa được chuyển dữ liệu.");
@@ -116,6 +115,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ kind:
         const updated = { ...deck, cards };
         assertDeckSize(updated);
         if (key !== card.key) {
+          const oldMarker = store.collection("uniqueKeys").doc(uniqueId("cards", card.topicId, card.key));
+          const newMarker = store.collection("uniqueKeys").doc(uniqueId("cards", card.topicId, key));
           const duplicate = await tx.get(newMarker);
           if (duplicate.exists) throw new ApiError(409, "Cặp từ và nghĩa đã có trong chủ đề.");
           tx.delete(oldMarker);
@@ -125,21 +126,22 @@ export async function PATCH(request: Request, context: { params: Promise<{ kind:
         tx.update(deckRef, { cards });
       });
     } else {
-      const question = doc.data() as Question;
       const text = textField(body.question, "Câu hỏi", 1000);
       if ((text.match(/____/g) ?? []).length !== 1) throw new ApiError(400, "Câu hỏi cần đúng một chỗ trống ____. ");
       const A = textField(body.A, "Đáp án A", 1000), B = textField(body.B, "Đáp án B", 1000), C = textField(body.C, "Đáp án C", 1000), D = textField(body.D, "Đáp án D", 1000);
       const explanation = textField(body.explanation, "Giải thích", 1000);
       if (body.translation !== undefined && (typeof body.translation !== "string" || body.translation.trim().length > 1000)) throw new ApiError(400, "Câu dịch không hợp lệ.");
-      const translation = body.translation?.trim() ?? question.translation ?? "";
       if (!["A", "B", "C", "D"].includes(body.correctAnswer)) throw new ApiError(400, "Đáp án đúng không hợp lệ.");
       const key = normalizedKey(text);
-      const oldMarker = store.collection("uniqueKeys").doc(uniqueId("questions", question.lessonId, question.key));
-      const newMarker = store.collection("uniqueKeys").doc(uniqueId("questions", question.lessonId, key));
       await store.runTransaction(async tx => {
         const current = await tx.get(ref);
         if (!current.exists) throw new ApiError(404, "Không tìm thấy câu hỏi.");
+        // Đọc key/lessonId mới nhất trong transaction để tránh orphan uniqueKeys
+        const question = current.data() as Question;
+        const translation = body.translation?.trim() ?? question.translation ?? "";
         if (key !== question.key) {
+          const oldMarker = store.collection("uniqueKeys").doc(uniqueId("questions", question.lessonId, question.key));
+          const newMarker = store.collection("uniqueKeys").doc(uniqueId("questions", question.lessonId, key));
           const duplicate = await tx.get(newMarker);
           if (duplicate.exists) throw new ApiError(409, "Câu hỏi đã có trong bài.");
           tx.delete(oldMarker);
