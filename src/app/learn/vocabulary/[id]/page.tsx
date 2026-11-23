@@ -32,7 +32,8 @@ export default function Flashcards() {
       await api(`/api/cards/${current.id}/progress`, { method:"PATCH", body:JSON.stringify({status}) });
       invalidateLoadCache(uid, ["/api/home", "/api/catalog?kind=topics", "/api/progress-summary", "/api/study?"]);
       setData({ ...data, cards:data.cards.map(c => c.id === current.id ? {...c,status} : c) });
-      setFlipped(false); setIndex(filter === "review" ? index : index+1);
+      // Ở tab "Cần ôn", chỉ giữ nguyên index khi thẻ bị loại khỏi danh sách (đánh dấu đã nhớ)
+      setFlipped(false); setIndex(filter === "review" && status === "remembered" ? index : index + 1);
     } catch (cause) { setSaveError(cause instanceof Error ? cause.message : "Không lưu được thẻ."); }
     finally { setSaving(false); }
   }
