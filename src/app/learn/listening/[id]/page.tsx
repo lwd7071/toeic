@@ -49,6 +49,15 @@ export default function ListeningExercise() {
   const [index, setIndex] = useState(0);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [busy, setBusy] = useState(false), [submitError, setSubmitError] = useState("");
+  // Reset toàn bộ state bài làm khi chuyển sang bài listening khác
+  useEffect(() => {
+    setResponses({});
+    setResult(null);
+    setIndex(0);
+    setFeedback(null);
+    setBusy(false);
+    setSubmitError("");
+  }, [id]);
   async function check() {
     const item = data?.items[index];
     if (!item || busy || feedback || !(responses[item.id] ?? "").trim()) return;
