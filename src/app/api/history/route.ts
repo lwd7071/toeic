@@ -13,7 +13,7 @@ function cursorToken(request: Request): { g: Cursor; l: Cursor } {
   try {
     if (raw.length > 500 || !/^[\w-]+$/.test(raw)) throw new Error();
     const value = JSON.parse(Buffer.from(raw, "base64url").toString()) as { g: Cursor; l: Cursor };
-    for (const cursor of [value.g, value.l]) if (cursor !== null && (!Array.isArray(cursor) || cursor.length !== 2 || !Number.isFinite(Date.parse(cursor[0])) || !/^[\w-]+$/.test(cursor[1]))) throw new Error();
+    for (const cursor of [value.g, value.l]) if (cursor !== null && (!Array.isArray(cursor) || cursor.length !== 2 || typeof cursor[0] !== "string" || typeof cursor[1] !== "string" || !Number.isFinite(Date.parse(cursor[0])) || !/^[\w-]+$/.test(cursor[1]))) throw new Error();
     return value;
   } catch { throw new ApiError(400, "Trang không hợp lệ."); }
 }
