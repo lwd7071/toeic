@@ -76,7 +76,8 @@ export async function POST(request: Request) {
     }
     if (body.kind === "lesson") {
       if (body.lessonKind !== "theory" && body.lessonKind !== "practice") throw new ApiError(400, "Hãy chọn loại bài ngữ pháp.");
-      const theory = typeof body.theory === "string" ? body.theory.trim().slice(0, 20000) : "";
+      const theory = typeof body.theory === "string" ? body.theory.trim() : "";
+      if (theory.length > 20000) throw new ApiError(400, "Lý thuyết quá dài.");
       if (body.lessonKind === "practice" && theory) throw new ApiError(400, "Bài tập thuần không có lý thuyết.");
       const ref = store.collection("grammarLessons").doc();
       const batch = store.batch();

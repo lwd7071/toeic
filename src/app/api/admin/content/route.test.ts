@@ -5,7 +5,7 @@ const { requireContentEditor, requireCsrf, db, firestorePage, revalidateTag, add
   requireContentEditor: vi.fn(), requireCsrf: vi.fn(), db: vi.fn(), firestorePage: vi.fn(), revalidateTag: vi.fn(), add: vi.fn(), queried: [] as string[], creates: [] as { path: string; value: Record<string, unknown> }[],
 }));
 vi.mock("@/lib/auth", () => ({ requireContentEditor, ApiError }));
-vi.mock("@/lib/api", () => ({ requireCsrf, textField: (value: string) => value.trim(), jsonError: (error: Error) => Response.json({ error: error.message }, { status: 500 }) }));
+vi.mock("@/lib/api", () => ({ requireCsrf, textField: (value: string) => value.trim(), jsonError: (error: Error & { status?: number }) => Response.json({ error: error.message }, { status: error.status ?? 500 }) }));
 vi.mock("@/lib/firebase-admin", () => ({ db }));
 vi.mock("@/lib/pagination", () => ({ firestorePage }));
 vi.mock("next/cache", () => ({ revalidateTag }));
@@ -65,5 +65,14 @@ describe("admin content pagination", () => {
     expect(response.status).toBe(200);
     expect(creates).toContainEqual({ path: "grammarLessons/new-topic", value: expect.objectContaining({ kind: "practice", title: "Luyện thì", theory: "" }) });
     expect(creates).toContainEqual({ path: "grammarExercises/default_new-topic", value: expect.objectContaining({ title: "Luyện thì" }) });
+  });
+
+  it("rejects theory exceeding 20000 characters instead of silently truncating", async () => {
+    const response = await POST(new Request("http://localhost/api/admin/content", {
+      method: "POST",
+      body: JSON.stringify({ kind: "lesson", lessonKind: "theory", title: "Bài dài", theory: "a".repeat(20001) }),
+    }));
+    expect(response.status).toBe(400);
+    expect(creates).toHaveLength(0);
   });
 });
