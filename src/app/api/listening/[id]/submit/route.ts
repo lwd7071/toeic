@@ -31,12 +31,21 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       return { id: i.id, selected, correct: set.kind === "dictation" ? normalizedTranscript(selected) === normalizedTranscript(expected) : selected === expected, expected, ...(set.kind === "picture" ? { A: i.A, B: i.B, C: i.C, D: i.D } : {}) };
     });
     const attempt: ListeningAttempt = { uid: user.uid, setId: id, title: set.title, kind: set.kind, correct: answers.filter(a => a.correct).length, total: items.length, completedAt: now() };
-    const ref = store.collection("listeningAttempts").doc(), batch = store.batch();
-    batch.create(ref, attempt);
-    answers.forEach((answer, index) => batch.create(store.collection("listeningAnswers").doc(), { ...answer, attemptId: ref.id, uid: user.uid, index }));
+    const ref = store.collection("listeningAttempts").doc();
     const day = qualifiedDay(new Date(attempt.completedAt));
-    if (day) batch.set(studyDayRef(user.uid, day.date), { completedAt: day.at }, { merge: true });
-    await batch.commit();
+    // Chia nhỏ WriteBatch (<= 450 writes/batch) để không vượt giới hạn 500 writes của Firestore
+    const CHUNK = 450;
+    for (let start = 0; start < answers.length; start += CHUNK) {
+      const batch = store.batch();
+      if (start === 0) {
+        batch.create(ref, attempt);
+        if (day) batch.set(studyDayRef(user.uid, day.date), { completedAt: day.at }, { merge: true });
+      }
+      answers.slice(start, start + CHUNK).forEach((answer, offset) =>
+        batch.create(store.collection("listeningAnswers").doc(), { ...answer, attemptId: ref.id, uid: user.uid, index: start + offset }),
+      );
+      await batch.commit();
+    }
     return Response.json({ id: ref.id, ...attempt, answers });
   } catch (error) { return jsonError(error); }
 }
