@@ -1,7 +1,7 @@
 import { ApiError, requireContentEditor } from "@/lib/auth";
 import { jsonError, requireCsrf, textField } from "@/lib/api";
 import { db } from "@/lib/firebase-admin";
-import { ListeningKind } from "@/lib/listening";
+import { isListeningKind } from "@/lib/listening";
 import { now } from "@/lib/models";
 import { revalidateTag } from "next/cache";
 import { firestorePage } from "@/lib/pagination";
@@ -42,8 +42,8 @@ export async function POST(request: Request) {
     await requireCsrf(); await requireContentEditor();
     const body = await request.json();
     const title = textField(body.title, "Tên bài", 120);
-    if (body.kind !== "dictation" && body.kind !== "picture") throw new ApiError(400, "Dạng bài không hợp lệ.");
-    const ref = await db().collection("listeningSets").add({ title, kind: body.kind as ListeningKind, totalCount: 0, activeCount: 0, archivedAt: null, createdAt: now() });
+    if (!isListeningKind(body.kind)) throw new ApiError(400, "Dạng bài không hợp lệ.");
+    const ref = await db().collection("listeningSets").add({ title, kind: body.kind, totalCount: 0, activeCount: 0, archivedAt: null, createdAt: now() });
     revalidateTag("content:listening");
     return Response.json({ id: ref.id });
   } catch (error) { return jsonError(error); }

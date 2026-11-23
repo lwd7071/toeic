@@ -3,7 +3,7 @@ import { jsonError } from "@/lib/api";
 import { db } from "@/lib/firebase-admin";
 import { PAGE_SIZE, pageToken } from "@/lib/pagination";
 import { Attempt, Lesson, Topic } from "@/lib/models";
-import { ListeningAttempt, ListeningSet } from "@/lib/listening";
+import { isListeningKind, ListeningAttempt, ListeningSet } from "@/lib/listening";
 import { cachedTopics, cachedLessons, cachedListening } from "@/lib/cached-content";
 
 export const runtime = "nodejs";
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
     }
     if (kind === "listening") {
       const listeningKind = params.get("listeningKind");
-      if (listeningKind !== null && listeningKind !== "dictation" && listeningKind !== "picture") throw new ApiError(400, "Dạng listening không hợp lệ.");
+      if (listeningKind !== null && !isListeningKind(listeningKind)) throw new ApiError(400, "Dạng listening không hợp lệ.");
       const page = await cachedListening(PAGE_SIZE, token, listeningKind ?? undefined);
       const items = await Promise.all(page.items.map(async d => {
         const set = d as unknown as ListeningSet;

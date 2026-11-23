@@ -58,4 +58,51 @@ describe("listening submit batching", () => {
     expect(batches[0].writes).toBe(452); // 1 attempt + 1 studyDay + 450 answers
     expect(batches[1].writes).toBe(50);  // 50 remaining answers
   });
+
+  it("grades part2 answers, returns script/explanation/translation, and rejects D", async () => {
+    cachedListeningSet.mockResolvedValue({
+      set: { title: "Part 2 Test 1", kind: "part2", archivedAt: null },
+      items: [{
+        id: "q-1",
+        setId: "set-p2",
+        audioUrl: "https://drive.google.com/file/d/abcdefghij/view",
+        question: "Where is the meeting?",
+        A: "At 9 AM.",
+        B: "In Room B.",
+        C: "Yes, I did.",
+        correctAnswer: "B",
+        explanation: "Câu hỏi Where hỏi địa điểm.",
+        translation: "Cuộc họp ở đâu?",
+        key: "\u0000https://drive.google.com/file/d/abcdefghij/view",
+        archivedAt: null,
+        createdAt: "2026-11-01T00:00:00Z",
+      }],
+    });
+
+    const invalid = await POST(
+      new Request("http://localhost/api/listening/set-p2/submit", { method: "POST", body: JSON.stringify({ responses: [{ id: "q-1", selected: "D" }] }) }),
+      { params: Promise.resolve({ id: "set-p2" }) },
+    );
+    expect(invalid.status).toBe(400);
+
+    const ok = await POST(
+      new Request("http://localhost/api/listening/set-p2/submit", { method: "POST", body: JSON.stringify({ responses: [{ id: "q-1", selected: "B" }] }) }),
+      { params: Promise.resolve({ id: "set-p2" }) },
+    );
+    expect(ok.status).toBe(200);
+    const json = await ok.json();
+    expect(json.correct).toBe(1);
+    expect(json.answers[0]).toMatchObject({
+      id: "q-1",
+      selected: "B",
+      correct: true,
+      expected: "B",
+      question: "Where is the meeting?",
+      A: "At 9 AM.",
+      B: "In Room B.",
+      C: "Yes, I did.",
+      explanation: "Câu hỏi Where hỏi địa điểm.",
+      translation: "Cuộc họp ở đâu?",
+    });
+  });
 });

@@ -27,8 +27,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const answers = items.map(i => {
       const selected = submitted.get(i.id)!;
       if (set.kind === "picture" && !["A", "B", "C", "D"].includes(selected)) throw new ApiError(400, "Lựa chọn không hợp lệ.");
+      if (set.kind === "part2" && !["A", "B", "C"].includes(selected)) throw new ApiError(400, "Lựa chọn không hợp lệ.");
       const expected = set.kind === "dictation" ? i.transcript! : i.correctAnswer!;
-      return { id: i.id, selected, correct: set.kind === "dictation" ? normalizedTranscript(selected) === normalizedTranscript(expected) : selected === expected, expected, ...(set.kind === "picture" ? { A: i.A, B: i.B, C: i.C, D: i.D } : {}) };
+      return {
+        id: i.id,
+        selected,
+        correct: set.kind === "dictation" ? normalizedTranscript(selected) === normalizedTranscript(expected) : selected === expected,
+        expected,
+        ...(set.kind === "picture" ? { A: i.A, B: i.B, C: i.C, D: i.D } : {}),
+        ...(set.kind === "part2" ? { question: i.question, A: i.A, B: i.B, C: i.C, explanation: i.explanation, translation: i.translation } : {}),
+      };
     });
     const attempt: ListeningAttempt = { uid: user.uid, setId: id, title: set.title, kind: set.kind, correct: answers.filter(a => a.correct).length, total: items.length, completedAt: now() };
     const ref = store.collection("listeningAttempts").doc();

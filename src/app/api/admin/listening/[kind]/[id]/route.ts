@@ -45,9 +45,22 @@ export async function PATCH(request: Request, context: { params: Promise<{ kind:
         if (!duplicate.empty) throw new ApiError(409, "Media đã có trong bài.");
       }
       if (setKind === "dictation") await ref.update({ audioUrl, transcript: textField(body.transcript, "Câu chép", 1000), key });
-      else {
+      else if (setKind === "picture") {
         if (!["A", "B", "C", "D"].includes(body.correctAnswer)) throw new ApiError(400, "Đáp án đúng không hợp lệ.");
         await ref.update({ imageUrl, audioUrl, A: textField(body.A, "A", 1000), B: textField(body.B, "B", 1000), C: textField(body.C, "C", 1000), D: textField(body.D, "D", 1000), correctAnswer: body.correctAnswer, key });
+      } else {
+        if (!["A", "B", "C"].includes(body.correctAnswer)) throw new ApiError(400, "Đáp án đúng phải là A, B hoặc C.");
+        await ref.update({
+          audioUrl,
+          question: textField(body.question, "Câu hỏi", 1000),
+          A: textField(body.A, "A", 1000),
+          B: textField(body.B, "B", 1000),
+          C: textField(body.C, "C", 1000),
+          correctAnswer: body.correctAnswer,
+          explanation: textField(body.explanation, "Giải thích", 1000),
+          translation: textField(body.translation, "Câu dịch", 1000),
+          key,
+        });
       }
     }
     revalidateTag("content:listening");
