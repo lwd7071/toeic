@@ -9,15 +9,16 @@ export async function viewer(): Promise<Viewer | null> {
   const token = (await cookies()).get("miu_session")?.value;
   if (!token) return null;
   try {
-    // Verify JWT cục bộ (~1ms), chỉ kiểm tra revoke qua mạng nếu là tài khoản Bot
+    // Verify JWT cục bộ (~1ms), kiểm tra revoke qua mạng với tài khoản đặc quyền (Admin/Bot)
     const decoded = await adminAuth().verifySessionCookie(token, false);
     const isBot = isConfiguredBot(decoded, process.env.BOT_FIREBASE_UID);
-    if (isBot) await adminAuth().verifySessionCookie(token, true);
+    const isAdmin = isConfiguredAdmin(decoded, process.env.ADMIN_GOOGLE_EMAIL);
+    if (isBot || isAdmin) await adminAuth().verifySessionCookie(token, true);
     const email = decoded.email?.toLowerCase() ?? "";
     return {
       uid: decoded.uid,
       email,
-      isAdmin: isConfiguredAdmin(decoded, process.env.ADMIN_GOOGLE_EMAIL),
+      isAdmin,
       isBot,
     };
   } catch {

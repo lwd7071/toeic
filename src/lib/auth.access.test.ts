@@ -25,4 +25,15 @@ describe("Bot permissions", () => {
     delete process.env.BOT_FIREBASE_UID;
     await expect(requireContentEditor()).rejects.toMatchObject({ status: 403 });
   });
+
+  it("verifies revocation against Firebase for admin sessions", async () => {
+    verifySessionCookie.mockResolvedValue({
+      uid: "admin-uid",
+      email: "owner@example.com",
+      email_verified: true,
+      firebase: { sign_in_provider: "google.com" },
+    });
+    await expect(requireAdmin()).resolves.toMatchObject({ isAdmin: true, isBot: false });
+    expect(verifySessionCookie).toHaveBeenCalledWith("session", true);
+  });
 });

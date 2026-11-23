@@ -24,7 +24,16 @@ export async function POST(request: Request) {
 export async function DELETE() {
   try {
     await requireCsrf();
-    (await cookies()).delete("miu_session");
+    const jar = await cookies();
+    const token = jar.get("miu_session")?.value;
+    // Thu hồi refresh tokens phía server để vô hiệu hóa session cũ nếu bị lộ
+    if (token) {
+      try {
+        const decoded = await adminAuth().verifySessionCookie(token, false);
+        await adminAuth().revokeRefreshTokens(decoded.uid);
+      } catch { /* Vẫn xóa cookie kể cả khi session đã hết hạn */ }
+    }
+    jar.delete("miu_session");
     return Response.json({ ok: true });
   } catch (error) { return jsonError(error); }
 }
