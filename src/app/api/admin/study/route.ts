@@ -16,7 +16,10 @@ export async function GET(request: Request) {
     const pageToken = params.get("pageToken") ?? undefined;
     if (pageToken && pageToken.length > 2000) throw new ApiError(400, "Trang không hợp lệ.");
     const page = await adminAuth().listUsers(20, pageToken);
-    const accounts = page.users.filter(account => account.email?.toLowerCase() !== process.env.ADMIN_GOOGLE_EMAIL?.trim().toLowerCase());
+    const adminEmail = process.env.ADMIN_GOOGLE_EMAIL?.trim().toLowerCase();
+    const botUid = process.env.BOT_FIREBASE_UID?.trim();
+    // Loại cả tài khoản admin và bot khỏi danh sách học viên
+    const accounts = page.users.filter(account => account.email?.toLowerCase() !== adminEmail && (!botUid || account.uid !== botUid));
     const students = await Promise.all(accounts.map(async account => {
       const activity = await studyDays(account.uid, month, today);
       return {

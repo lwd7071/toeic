@@ -28,4 +28,24 @@ describe("admin study calendar", () => {
     expect(response.status).toBe(403);
     expect(listUsers).not.toHaveBeenCalled();
   });
+
+  it("excludes configured bot account from students list", async () => {
+    const prevBot = process.env.BOT_FIREBASE_UID;
+    process.env.BOT_FIREBASE_UID = "bot-uid-1";
+    try {
+      listUsers.mockResolvedValue({
+        users: [
+          { uid: "bot-uid-1", email: "bot@internal.local", displayName: "Bot", metadata: { creationTime: "2026-11-01T00:00:00Z" } },
+          { uid: "learner-1", email: "learner@example.com", displayName: "Learner", metadata: { creationTime: "2026-11-01T00:00:00Z" } },
+        ],
+        pageToken: undefined,
+      });
+      const response = await GET(new Request("http://localhost/api/admin/study?month=2026-11"));
+      const json = await response.json();
+      expect(json.students.map((s: { uid: string }) => s.uid)).toEqual(["learner-1"]);
+    } finally {
+      if (prevBot === undefined) delete process.env.BOT_FIREBASE_UID;
+      else process.env.BOT_FIREBASE_UID = prevBot;
+    }
+  });
 });
