@@ -66,7 +66,9 @@ describe("content import reads", () => {
     data.set("parentId", "topic-1");
     data.set("file", new File(["english,vietnamese\ninvalid_row\nhello,xin chào"], "cards.csv"));
     const response = await POST(new Request("http://localhost", { method: "POST", body: data }));
-    expect((await response.json()).errors).toEqual([
+    const json = await response.json();
+    expect(json.lines).toEqual([3]);
+    expect(json.errors).toEqual([
       "Dòng 2: cần đúng 2 cột.",
       "Dòng 3: nội dung đã có trong bài/chủ đề (có thể đang bị ẩn).",
     ]);
