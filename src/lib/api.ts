@@ -12,7 +12,12 @@ export async function requireCsrf() {
   const cookie = (await cookies()).get("miu_csrf")?.value;
   const origin = h.get("origin");
   const host = h.get("x-forwarded-host") ?? h.get("host");
-  if (!cookie || h.get("x-csrf-token") !== cookie || !origin || new URL(origin).host !== host) {
+  // Tránh TypeError (500) khi Origin không phải URL hợp lệ (vd: "null")
+  let originHost: string | null = null;
+  if (origin) {
+    try { originHost = new URL(origin).host; } catch { originHost = null; }
+  }
+  if (!cookie || h.get("x-csrf-token") !== cookie || !originHost || originHost !== host) {
     throw new ApiError(403, "Phiên bảo mật không hợp lệ. Hãy tải lại trang.");
   }
 }
