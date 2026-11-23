@@ -2,9 +2,13 @@ import { createHash } from "node:crypto";
 import { parse } from "csv-parse/sync";
 import { ApiError } from "./errors";
 
-export type ListeningKind = "dictation" | "picture";
+export type ListeningKind = "dictation" | "picture" | "part2";
+export const LISTENING_KINDS: readonly ListeningKind[] = ["dictation", "picture", "part2"];
+export function isListeningKind(value: unknown): value is ListeningKind {
+  return typeof value === "string" && (LISTENING_KINDS as readonly string[]).includes(value);
+}
 export type ListeningSet = { title: string; kind: ListeningKind; totalCount: number; activeCount: number; archivedAt: string | null; createdAt: string };
-export type ListeningItem = { setId: string; audioUrl: string; imageUrl?: string; transcript?: string; A?: string; B?: string; C?: string; D?: string; correctAnswer?: "A" | "B" | "C" | "D"; key: string; archivedAt: string | null; createdAt: string };
+export type ListeningItem = { setId: string; audioUrl: string; imageUrl?: string; transcript?: string; question?: string; A?: string; B?: string; C?: string; D?: string; correctAnswer?: "A" | "B" | "C" | "D"; explanation?: string; translation?: string; key: string; archivedAt: string | null; createdAt: string };
 export type ListeningAttempt = { uid: string; setId: string; title: string; kind: ListeningKind; correct: number; total: number; completedAt: string };
 
 export function driveLink(value: string): { viewUrl: string; previewUrl: string } {
@@ -30,27 +34,36 @@ export function parseListeningCsv(buffer: Buffer, kind: ListeningKind) {
     new TextDecoder("utf-8", { fatal: true }).decode(buffer);
     records = parse(buffer, { bom: true, skip_empty_lines: true, relax_quotes: false, relax_column_count: true });
   } catch { throw new ApiError(400, "CSV không hợp lệ hoặc không phải UTF-8."); }
-  const header = kind === "dictation" ? ["audio_url", "transcript"] : ["image_url", "audio_url", "A", "B", "C", "D", "correct_answer"];
+  const header = kind === "dictation"
+    ? ["audio_url", "transcript"]
+    : kind === "picture"
+      ? ["image_url", "audio_url", "A", "B", "C", "D", "correct_answer"]
+      : ["audio_url", "question", "A", "B", "C", "correct_answer", "explanation", "translation"];
   if (JSON.stringify(records.shift()?.map(x => x.trim().toLowerCase())) !== JSON.stringify(header.map(x => x.toLowerCase()))) throw new ApiError(400, `Dòng tiêu đề phải là: ${header.join(",")}`);
   if (!records.length || records.length > 200) throw new ApiError(400, "File cần có từ 1 đến 200 dòng dữ liệu.");
   const errors: string[] = [], seen = new Set<string>(), lines: number[] = [];
-  const rows: (Pick<ListeningItem, "audioUrl" | "imageUrl" | "transcript" | "A" | "B" | "C" | "D" | "correctAnswer" | "key">)[] = [];
+  const rows: (Pick<ListeningItem, "audioUrl" | "imageUrl" | "transcript" | "question" | "A" | "B" | "C" | "D" | "correctAnswer" | "explanation" | "translation" | "key">)[] = [];
   records.forEach((record, index) => {
     const line = index + 2;
     if (record.length !== header.length) { errors.push(`Dòng ${line}: cần đúng ${header.length} cột.`); return; }
     const values = record.map(x => x.trim().normalize("NFC"));
     if (values.some(x => !x || x.length > 1000)) { errors.push(`Dòng ${line}: thiếu dữ liệu hoặc ô dài quá 1000 ký tự.`); return; }
     try {
-      const audioUrl = driveLink(values[kind === "dictation" ? 0 : 1]).viewUrl;
+      const audioUrl = driveLink(values[kind === "picture" ? 1 : 0]).viewUrl;
       const imageUrl = kind === "picture" ? driveLink(values[0]).viewUrl : undefined;
       const key = `${imageUrl ?? ""}\u0000${audioUrl}`;
       if (seen.has(key)) { errors.push(`Dòng ${line}: trùng media trong file.`); return; }
       seen.add(key);
       if (kind === "dictation") { rows.push({ audioUrl, transcript: values[1], key }); lines.push(line); }
-      else {
+      else if (kind === "picture") {
         const answer = values[6].toUpperCase();
         if (!["A", "B", "C", "D"].includes(answer)) { errors.push(`Dòng ${line}: đáp án đúng phải là A, B, C hoặc D.`); return; }
         rows.push({ imageUrl, audioUrl, A: values[2], B: values[3], C: values[4], D: values[5], correctAnswer: answer as ListeningItem["correctAnswer"], key });
+        lines.push(line);
+      } else {
+        const answer = values[5].toUpperCase();
+        if (!["A", "B", "C"].includes(answer)) { errors.push(`Dòng ${line}: đáp án đúng phải là A, B hoặc C.`); return; }
+        rows.push({ audioUrl, question: values[1], A: values[2], B: values[3], C: values[4], correctAnswer: answer as ListeningItem["correctAnswer"], explanation: values[6], translation: values[7], key });
         lines.push(line);
       }
     } catch (error) { errors.push(`Dòng ${line}: ${error instanceof Error ? error.message : "link không hợp lệ"}`); }
