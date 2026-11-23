@@ -22,7 +22,7 @@ export default function Lesson() {
   const [startError,setStartError] = useState("");
   async function start(exerciseId:string) {
     setBusy(exerciseId);setStartError("");
-    try { const {id:attemptId}=await api<{id:string}>(`/api/lessons/${id}/attempts`,{method:"POST",body:JSON.stringify({exerciseId})});invalidateLoadCache(uid,["/api/home",`/api/lessons/${id}`,"/api/catalog?kind=lessons"]);router.push(`/learn/quiz/${attemptId}`); }
+    try { const {id:attemptId}=await api<{id:string}>(`/api/lessons/${id}/attempts`,{method:"POST",body:JSON.stringify({exerciseId})});invalidateLoadCache(uid,["/api/home",`/api/lessons/${id}`,"/api/catalog?kind=lessons","/api/history?"]);router.push(`/learn/quiz/${attemptId}`); }
     catch(cause){setStartError(cause instanceof Error?cause.message:"Không bắt đầu được bài.");setBusy("")}
   }
   if(loading)return <Loading/>;
