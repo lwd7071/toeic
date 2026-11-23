@@ -34,7 +34,7 @@ async function handle(request: Request, commit: boolean) {
       const matches = await Promise.all(Array.from({ length: Math.ceil(markerRefs.length / 30) }, (_, index) =>
         store.collection("uniqueKeys").where(FieldPath.documentId(), "in", markerRefs.slice(index * 30, index * 30 + 30).map(ref => ref.id)).get()));
       const existing = new Set(matches.flatMap(snapshot => snapshot.docs.map(doc => doc.id)));
-      markerRefs.forEach((marker, index) => { if (existing.has(marker.id)) errors.push(`Dòng ${index + 2}: nội dung đã có trong bài/chủ đề (có thể đang bị ẩn).`); });
+      markerRefs.forEach((marker, index) => { if (existing.has(marker.id)) errors.push(`Dòng ${parsed.lines[index]}: nội dung đã có trong bài/chủ đề (có thể đang bị ẩn).`); });
       return Response.json({ hash: parsed.hash, rows: parsed.rows, errors, count: parsed.rows.length });
     }
     if (errors.length) throw new ApiError(400, errors.join("\n"));

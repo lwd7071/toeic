@@ -32,7 +32,7 @@ async function handle(request: Request, commit: boolean) {
     if (!commit) {
       const matches = await Promise.all(queries.map(query => query.get()));
       const keys = new Set(matches.flatMap(snapshot => snapshot.docs.map(doc => doc.data().key)));
-      parsed.rows.forEach((row, index) => { if (keys.has(row.key)) errors.push(`Dòng ${index + 2}: media đã có trong bài (có thể đang bị ẩn).`); });
+      parsed.rows.forEach((row, index) => { if (keys.has(row.key)) errors.push(`Dòng ${parsed.lines[index]}: media đã có trong bài (có thể đang bị ẩn).`); });
       return Response.json({ ...parsed, errors });
     }
     if (errors.length) throw new ApiError(400, errors.join("\n"));

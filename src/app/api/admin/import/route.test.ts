@@ -57,4 +57,18 @@ describe("content import reads", () => {
     const response = await POST(new Request("http://localhost", { method: "POST", body: form() }));
     expect((await response.json()).errors).toContain("Dòng 2: nội dung đã có trong bài/chủ đề (có thể đang bị ẩn).");
   });
+
+  it("keeps original CSV line numbers when an earlier row has a format error", async () => {
+    const { uniqueId, normalizedKey } = await import("@/lib/csv-import");
+    matched.push(uniqueId("cards", "topic-1", normalizedKey("hello", "xin chào")));
+    const data = new FormData();
+    data.set("kind", "cards");
+    data.set("parentId", "topic-1");
+    data.set("file", new File(["english,vietnamese\ninvalid_row\nhello,xin chào"], "cards.csv"));
+    const response = await POST(new Request("http://localhost", { method: "POST", body: data }));
+    expect((await response.json()).errors).toEqual([
+      "Dòng 2: cần đúng 2 cột.",
+      "Dòng 3: nội dung đã có trong bài/chủ đề (có thể đang bị ẩn).",
+    ]);
+  });
 });

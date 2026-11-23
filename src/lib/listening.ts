@@ -33,7 +33,7 @@ export function parseListeningCsv(buffer: Buffer, kind: ListeningKind) {
   const header = kind === "dictation" ? ["audio_url", "transcript"] : ["image_url", "audio_url", "A", "B", "C", "D", "correct_answer"];
   if (JSON.stringify(records.shift()?.map(x => x.trim().toLowerCase())) !== JSON.stringify(header.map(x => x.toLowerCase()))) throw new ApiError(400, `Dòng tiêu đề phải là: ${header.join(",")}`);
   if (!records.length || records.length > 200) throw new ApiError(400, "File cần có từ 1 đến 200 dòng dữ liệu.");
-  const errors: string[] = [], seen = new Set<string>();
+  const errors: string[] = [], seen = new Set<string>(), lines: number[] = [];
   const rows: (Pick<ListeningItem, "audioUrl" | "imageUrl" | "transcript" | "A" | "B" | "C" | "D" | "correctAnswer" | "key">)[] = [];
   records.forEach((record, index) => {
     const line = index + 2;
@@ -46,13 +46,14 @@ export function parseListeningCsv(buffer: Buffer, kind: ListeningKind) {
       const key = `${imageUrl ?? ""}\u0000${audioUrl}`;
       if (seen.has(key)) { errors.push(`Dòng ${line}: trùng media trong file.`); return; }
       seen.add(key);
-      if (kind === "dictation") rows.push({ audioUrl, transcript: values[1], key });
+      if (kind === "dictation") { rows.push({ audioUrl, transcript: values[1], key }); lines.push(line); }
       else {
         const answer = values[6].toUpperCase();
         if (!["A", "B", "C", "D"].includes(answer)) { errors.push(`Dòng ${line}: đáp án đúng phải là A, B, C hoặc D.`); return; }
         rows.push({ imageUrl, audioUrl, A: values[2], B: values[3], C: values[4], D: values[5], correctAnswer: answer as ListeningItem["correctAnswer"], key });
+        lines.push(line);
       }
     } catch (error) { errors.push(`Dòng ${line}: ${error instanceof Error ? error.message : "link không hợp lệ"}`); }
   });
-  return { hash, rows, errors, count: rows.length };
+  return { hash, rows, lines, errors, count: rows.length };
 }

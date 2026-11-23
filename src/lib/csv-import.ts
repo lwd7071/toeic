@@ -5,7 +5,7 @@ import { ApiError } from "./errors";
 export type ImportKind = "cards" | "questions";
 export type CardRow = { english: string; vietnamese: string; key: string };
 export type QuestionRow = { question: string; A: string; B: string; C: string; D: string; correctAnswer: "A"|"B"|"C"|"D"; explanation: string; translation: string; key: string };
-export type ParsedImport = { hash: string; rows: CardRow[] | QuestionRow[]; errors: string[] };
+export type ParsedImport = { hash: string; rows: CardRow[] | QuestionRow[]; lines: number[]; errors: string[] };
 
 export function normalizedKey(...values: string[]): string {
   return values.map(v => v.trim().normalize("NFC").toLocaleLowerCase("vi")).join("\u0000");
@@ -35,6 +35,7 @@ export function parseImport(buffer: Buffer, kind: ImportKind): ParsedImport {
   const errors: string[] = [];
   const seen = new Set<string>();
   const rows: Array<CardRow | QuestionRow> = [];
+  const lines: number[] = [];
   records.forEach((record, index) => {
     const line = index + 2;
     const columns = legacyQuestions ? expected.length - 1 : expected.length;
@@ -48,6 +49,7 @@ export function parseImport(buffer: Buffer, kind: ImportKind): ParsedImport {
       if (seen.has(key)) { errors.push(`Dòng ${line}: trùng cặp từ và nghĩa trong file.`); return; }
       seen.add(key);
       rows.push({ english, vietnamese, key });
+      lines.push(line);
     } else {
       const [question, A, B, C, D, answer, explanation, translation = ""] = values;
       if ((question.match(/____/g) ?? []).length !== 1) { errors.push(`Dòng ${line}: câu hỏi cần đúng một chỗ trống ____.`); return; }
@@ -57,7 +59,8 @@ export function parseImport(buffer: Buffer, kind: ImportKind): ParsedImport {
       if (seen.has(key)) { errors.push(`Dòng ${line}: trùng câu hỏi trong file.`); return; }
       seen.add(key);
       rows.push({ question, A, B, C, D, correctAnswer: correctAnswer as QuestionRow["correctAnswer"], explanation, translation, key });
+      lines.push(line);
     }
   });
-  return { hash, rows: rows as CardRow[] | QuestionRow[], errors };
+  return { hash, rows: rows as CardRow[] | QuestionRow[], lines, errors };
 }

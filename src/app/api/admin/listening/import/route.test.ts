@@ -58,4 +58,24 @@ describe("listening import reads", () => {
     ]);
     expect(transactionReads).toHaveLength(2);
   });
+
+  it("keeps original CSV line numbers when an earlier row has a format error", async () => {
+    const existingKey = "\u0000https://drive.google.com/file/d/abcdefghij/view";
+    db.mockReturnValue({
+      collection: (name: string) => ({
+        doc: (id?: string) => ({ id, name, get: async () => ({ data: () => ({ kind: "dictation", archivedAt: null }) }) }),
+        where: () => ({
+          where: () => ({ get: async () => ({ docs: [{ data: () => ({ key: existingKey }) }], empty: false }) }),
+        }),
+      }),
+    });
+    const data = new FormData();
+    data.set("setId", "set-1");
+    data.set("file", new File(["audio_url,transcript\nbad_row\nhttps://drive.google.com/file/d/abcdefghij/view,hello"], "items.csv"));
+    const preview = await POST(new Request("http://localhost", { method: "POST", body: data }));
+    expect((await preview.json()).errors).toEqual([
+      "Dòng 2: cần đúng 2 cột.",
+      "Dòng 3: media đã có trong bài (có thể đang bị ẩn).",
+    ]);
+  });
 });
