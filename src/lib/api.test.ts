@@ -10,7 +10,7 @@ vi.mock("next/headers", () => ({
   cookies: async () => ({ get: (key: string) => (cookieMap.has(key) ? { value: cookieMap.get(key) } : undefined) }),
 }));
 
-import { requireCsrf } from "./api";
+import { jsonError, requireCsrf } from "./api";
 
 describe("requireCsrf", () => {
   beforeEach(() => {
@@ -26,5 +26,21 @@ describe("requireCsrf", () => {
 
     await expect(requireCsrf()).rejects.toMatchObject({ status: 403 });
     await expect(requireCsrf()).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it("accepts matching CSRF token and origin and rejects mismatched length tokens", async () => {
+    cookieMap.set("miu_csrf", "abcdef123456");
+    headerMap.set("x-csrf-token", "abcdef123456");
+    headerMap.set("origin", "http://localhost:3000");
+    headerMap.set("host", "localhost:3000");
+    await expect(requireCsrf()).resolves.toBeUndefined();
+
+    headerMap.set("x-csrf-token", "short");
+    await expect(requireCsrf()).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("returns 400 on malformed JSON SyntaxError instead of 500", () => {
+    const res = jsonError(new SyntaxError("Unexpected end of JSON input"));
+    expect(res.status).toBe(400);
   });
 });

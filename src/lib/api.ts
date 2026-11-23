@@ -1,15 +1,25 @@
+import { timingSafeEqual } from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { ApiError } from "@/lib/auth";
 
 export function jsonError(error: unknown) {
   if (error instanceof ApiError) return Response.json({ error: error.message }, { status: error.status });
+  // Trả 400 thay vì 500 khi client gửi JSON sai cú pháp
+  if (error instanceof SyntaxError) return Response.json({ error: "Dữ liệu gửi lên không hợp lệ." }, { status: 400 });
   console.error(error);
   return Response.json({ error: "Có lỗi máy chủ. Vui lòng thử lại." }, { status: 500 });
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
 }
 
 export async function requireCsrf() {
   const h = await headers();
   const cookie = (await cookies()).get("miu_csrf")?.value;
+  const headerToken = h.get("x-csrf-token");
   const origin = h.get("origin");
   const host = h.get("x-forwarded-host") ?? h.get("host");
   // Tránh TypeError (500) khi Origin không phải URL hợp lệ (vd: "null")
@@ -17,7 +27,7 @@ export async function requireCsrf() {
   if (origin) {
     try { originHost = new URL(origin).host; } catch { originHost = null; }
   }
-  if (!cookie || h.get("x-csrf-token") !== cookie || !originHost || originHost !== host) {
+  if (!cookie || !headerToken || !safeEqual(headerToken, cookie) || !originHost || originHost !== host) {
     throw new ApiError(403, "Phiên bảo mật không hợp lệ. Hãy tải lại trang.");
   }
 }
