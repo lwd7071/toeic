@@ -131,7 +131,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ kind:
       const A = textField(body.A, "Đáp án A", 1000), B = textField(body.B, "Đáp án B", 1000), C = textField(body.C, "Đáp án C", 1000), D = textField(body.D, "Đáp án D", 1000);
       const explanation = textField(body.explanation, "Giải thích", 1000);
       if (body.translation !== undefined && (typeof body.translation !== "string" || body.translation.trim().length > 1000)) throw new ApiError(400, "Câu dịch không hợp lệ.");
-      if (!["A", "B", "C", "D"].includes(body.correctAnswer)) throw new ApiError(400, "Đáp án đúng không hợp lệ.");
+      const correctAnswer = typeof body.correctAnswer === "string" ? body.correctAnswer.trim().toUpperCase() : "";
+      if (!["A", "B", "C", "D"].includes(correctAnswer)) throw new ApiError(400, "Đáp án đúng không hợp lệ.");
       const key = normalizedKey(text);
       await store.runTransaction(async tx => {
         const current = await tx.get(ref);
@@ -147,7 +148,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ kind:
           tx.delete(oldMarker);
           tx.create(newMarker, { itemId: id, kind: "questions" });
         }
-        tx.update(ref, { question: text, A, B, C, D, explanation, translation, correctAnswer: body.correctAnswer, key });
+        tx.update(ref, { question: text, A, B, C, D, explanation, translation, correctAnswer, key });
       });
     }
     revalidateTag(kind === "topic" || kind === "card" ? "content:topics" : "content:lessons");
