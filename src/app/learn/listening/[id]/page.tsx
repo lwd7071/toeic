@@ -9,10 +9,12 @@ import { useLoad } from "@/lib/use-load";
 import { ViewerUid, invalidateLoadCache, primeLoadCache } from "@/lib/use-load";
 import { ErrorState, Loading, PageTitle } from "@/components/ui";
 
+type Kind = "dictation" | "picture" | "part2";
 type Item = { id: string; audioUrl: string; audioViewUrl: string; imageUrl?: string; imageViewUrl?: string };
-type Data = { set: { id: string; title: string; kind: "dictation" | "picture" }; items: Item[] };
-type Result = { id: string; correct: number; total: number; answers: { id: string; selected: string; correct: boolean; expected: string; A?: string; B?: string; C?: string; D?: string }[] };
+type Data = { set: { id: string; title: string; kind: Kind }; items: Item[] };
+type Result = { id: string; correct: number; total: number; answers: { id: string; selected: string; correct: boolean; expected: string; question?: string; A?: string; B?: string; C?: string; D?: string; explanation?: string; translation?: string }[] };
 type Feedback = { correct: boolean; expected: string };
+const KIND_LABELS: Record<Kind, string> = { dictation: "Nghe chép", picture: "Mô tả tranh", part2: "Hỏi - đáp (Part 2)" };
 
 // Lazy-mount iframe Google Drive khi cuộn tới để tránh nghẽn băng thông do hàng chục iframe load cùng lúc
 function Media({ item, eager = false }: { item: Item; eager?: boolean }) {
@@ -73,8 +75,10 @@ export default function ListeningExercise() {
   if (loading) return <Loading/>;
   if (error || !data) return <ErrorState message={error} retry={reload}/>;
   const dictation = data.set.kind === "dictation";
+  const part2 = data.set.kind === "part2";
+  const choices = part2 ? (["A", "B", "C"] as const) : (["A", "B", "C", "D"] as const);
   const current = data.items[index];
-  return <><Link className="back-link" href="/learn/listening"><ArrowLeft size={17}/> Tất cả bài listening</Link><PageTitle title={data.set.title} description={`${dictation ? "Nghe chép" : "Mô tả tranh"} · ${data.items.length} câu · ${dictation ? "Chấm từng câu, lưu kết quả cuối bài" : "Nộp cả bài để lưu kết quả"}`}/>
+  return <><Link className="back-link" href="/learn/listening"><ArrowLeft size={17}/> Tất cả bài listening</Link><PageTitle title={data.set.title} description={`${KIND_LABELS[data.set.kind]} · ${data.items.length} câu · ${dictation ? "Chấm từng câu, lưu kết quả cuối bài" : "Nộp cả bài để lưu kết quả"}`}/>
     {result && <div className="paper-panel listening-result" role="status"><h2>Hoàn thành rồi ní!</h2><p className="result-score">{result.correct}/{result.total}</p><Link href={`/learn/listening/result/${result.id}`} className="button button-mint">Xem kết quả đã lưu</Link></div>}
     {!data.items.length && <div className="paper-panel"><p>Bài này chưa có câu hỏi.</p></div>}
     {dictation && current && !result && <div className="listening-list"><section className="paper-panel" key={current.id}>
@@ -89,8 +93,17 @@ export default function ListeningExercise() {
     {!dictation && <div className="listening-list">{data.items.map((item, index) => {
       const answer = result?.answers.find(a => a.id === item.id);
       return <section className="paper-panel" key={item.id}><h2>Câu {index + 1}</h2><Media item={item} eager={index < 2}/>
-        <fieldset className="listening-choices" disabled={Boolean(result)}><legend>Chọn câu mô tả đúng</legend>{(["A", "B", "C", "D"] as const).map(letter => <label key={letter}><input type="radio" name={item.id} checked={responses[item.id] === letter} onChange={() => setResponses({ ...responses, [item.id]: letter })}/><span>{letter}</span></label>)}</fieldset>
-        {answer && <div className={`feedback ${answer.correct ? "" : "wrong"}`}><h3>{answer.correct ? "Chính xác!" : "Chưa đúng rồi"}</h3><p>Đáp án: {answer.expected} · A. {answer.A} · B. {answer.B} · C. {answer.C} · D. {answer.D}</p></div>}
+        <fieldset className="listening-choices" disabled={Boolean(result)}><legend>{part2 ? "Chọn câu trả lời phù hợp" : "Chọn câu mô tả đúng"}</legend>{choices.map(letter => <label key={letter}><input type="radio" name={item.id} checked={responses[item.id] === letter} onChange={() => setResponses({ ...responses, [item.id]: letter })}/><span>{letter}</span></label>)}</fieldset>
+        {answer && <div className={`feedback ${answer.correct ? "" : "wrong"}`}>
+          <h3>{answer.correct ? "Chính xác!" : "Chưa đúng rồi"}</h3>
+          {part2 ? <>
+            <p><strong>Đáp án: {answer.expected}</strong></p>
+            {answer.question && <p>Câu hỏi: {answer.question}</p>}
+            <p>A. {answer.A} · B. {answer.B} · C. {answer.C}</p>
+            {answer.explanation && <p>Giải thích: {answer.explanation}</p>}
+            {answer.translation && <p>Câu dịch: {answer.translation}</p>}
+          </> : <p>Đáp án: {answer.expected} · A. {answer.A} · B. {answer.B} · C. {answer.C} · D. {answer.D}</p>}
+        </div>}
       </section>;
     })}</div>}
     {!dictation && !result && data.items.length > 0 && <div className="quiz-next"><button className="button button-primary" disabled={busy || data.items.some(item => !(responses[item.id] ?? "").trim())} onClick={submit}>{busy ? "Đang chấm..." : "Nộp bài và xem kết quả"}</button></div>}
